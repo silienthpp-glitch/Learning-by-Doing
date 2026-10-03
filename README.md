@@ -16,7 +16,7 @@ Unter Windows heißt der Befehl oft `py start.py`. Voraussetzung ist Python 3. A
 
 Öffne dann im Browser **http://127.0.0.1:8765**. Lass das Terminal während des Lernens offen. Zum Beenden drückst du dort **Strg+C**. Beim nächsten Start ist dein Fortschritt im selben Browser wieder da.
 
-Auf dem Mac kannst du alternativ `Start.command` öffnen. Falls macOS die Ausführung nicht zulässt, nutze den Terminal-Befehl oben.
+Auf dem Mac kannst du alternativ `Start.command` öffnen. Das startet die Seite und öffnet deinen Browser automatisch. Falls macOS beim ersten Start nachfragt, bestätige das Öffnen der Datei. Falls macOS die Ausführung weiterhin blockiert, nutze den Terminal-Befehl oben.
 
 Wenn der Port belegt ist:
 
