@@ -1,0 +1,11 @@
+# Lokale System- und Python-Dateien
+.DS_Store
+Thumbs.db
+__pycache__/
+*.py[cod]
+
+# Persönliche Sicherungen und Zugangsdaten
+learning-by-doing-sicherung*.json
+.env
+.env.*
+!.env.example
