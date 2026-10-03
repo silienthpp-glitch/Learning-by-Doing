@@ -1,0 +1,19 @@
+[
+  {
+    "id": "eigene-netz-001",
+    "topic": "Netzwerktechnik",
+    "prompt": "Welches Gerät verbindet unterschiedliche IP-Netzwerke miteinander?",
+    "answer": "Router",
+    "explanation": "Ein Switch verbindet Geräte innerhalb eines lokalen Netzwerks. Ein Router leitet IP-Pakete zwischen verschiedenen Netzwerken weiter. Dein Heimrouter verbindet zum Beispiel dein Heimnetz mit dem Netz deines Internetanbieters.",
+    "steps": [],
+    "type": "choice",
+    "options": [
+      "Switch",
+      "Router",
+      "Patchpanel",
+      "Access Point"
+    ],
+    "aliases": [],
+    "points": 2
+  }
+]
