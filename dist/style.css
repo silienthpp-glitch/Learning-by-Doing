@@ -107,6 +107,40 @@ footer { padding: 24px 0 36px; border-top: 1px solid var(--line); color: var(--m
 .stat-card { min-height: 130px; }
 .stat-label { color: var(--muted); font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .07em; }
 .stat { margin: 5px 0; font-size: 38px; line-height: 1; font-weight: 900; letter-spacing: -.04em; }
+
+.motivation-card {
+  margin: 0 0 24px;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--panel), var(--panel-2));
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 18px;
+}
+.motivation-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 17px;
+  display: grid;
+  place-items: center;
+  background: var(--primary-soft);
+  font-size: 27px;
+}
+.motivation-copy { min-width: 0; }
+.motivation-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.motivation-card blockquote {
+  margin: 0;
+  font-size: clamp(18px, 2.4vw, 25px);
+  line-height: 1.28;
+  letter-spacing: -.02em;
+  font-weight: 780;
+}
+.motivation-card p { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+.motivation-next { white-space: nowrap; }
+
 .two { display: grid; grid-template-columns: 1.25fr .75fr; gap: 24px; }
 .library-columns { grid-template-columns: 1fr 1fr; }
 .section-head, .topic-line { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -204,6 +238,8 @@ body.dark .hint { border-color: #2b3852; }
   #app, #storage-warning, footer { width: min(100% - 28px, 1180px); }
   #app { padding-top: 26px; }
   .hero, .heading { flex-direction: column; }
+  .motivation-card { grid-template-columns: auto 1fr; }
+  .motivation-next { grid-column: 1 / -1; width: 100%; }
   .ring { align-self: center; }
   .two, .library-columns, .filter-grid { grid-template-columns: 1fr; }
   footer { flex-direction: column; }
