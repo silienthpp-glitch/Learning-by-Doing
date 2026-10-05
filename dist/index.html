@@ -1,1 +1,52 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Dein lokaler IHK-Lerntrainer für Fachinformatiker Systemintegration."><title>Learning by Doing · IHK-Lerntrainer</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23234ae8'/%3E%3Cpath d='M9 8v16h14v-4H13V8' fill='white'/%3E%3C/svg%3E"><link rel="stylesheet" href="style.css"><script defer src="questions.js"></script><script defer src="app.js"></script></head><body><aside><a class="brand" href="#dashboard"><span class="logo">L</span><span>Learning<br>by Doing<span class="brand-sub">DEIN IHK-LERNTRAINER</span></span></a><div class="nav-label">DEIN LERNRAUM</div><nav aria-label="Hauptnavigation"><a href="#dashboard">◫ <span>Dashboard</span></a><a href="#learn">▷ <span>Lernen</span></a><a href="#errors">↻ <span>Fehlertraining</span><b id="error-count">0</b></a><a href="#topics">▦ <span>Themen</span></a><a href="#progress">◴ <span>Fortschritt</span></a><a href="#exam">▤ <span>Prüfungsmodus</span></a></nav><div class="sidebar-bottom"><span class="local-dot"></span> Lokal auf deinem Rechner<small>Dein Fortschritt bleibt bei dir.</small><button id="theme" class="quiet">◐ Darstellung wechseln</button></div></aside><main><header><span>Fachinformatiker · Systemintegration</span><span class="chip">3. Lehrjahr</span></header><div id="storage-warning" role="status"></div><div id="app"></div><footer>Beispielaufgaben · Keine offiziellen IHK-Prüfungen <span>Schritt für Schritt. In deinem Tempo.</span></footer></main></body></html>
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Learning by Doing – lokaler Lerntrainer für IHK, Klausuren und Tests.">
+  <title>Learning by Doing · Lerntrainer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23234ae8'/%3E%3Cpath d='M9 8v16h14v-4H13V8' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="questions.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <aside>
+    <a class="brand" href="#dashboard">
+      <span class="logo">L</span>
+      <span>Learning<br>by Doing<span class="brand-sub">DEIN LERNTRAINER</span></span>
+    </a>
+
+    <div class="nav-label">DEIN LERNRAUM</div>
+    <nav aria-label="Hauptnavigation">
+      <a href="#dashboard">◫ <span>Dashboard</span></a>
+      <a href="#learn">▷ <span>Lernen</span></a>
+      <a href="#library">▣ <span>Fächer & Lernsets</span></a>
+      <a href="#errors">↻ <span>Fehlertraining</span><b id="error-count">0</b></a>
+      <a href="#games">♟ <span>Lernspiele</span></a>
+      <a href="#topics">▦ <span>Themen</span></a>
+      <a href="#progress">◴ <span>Fortschritt</span></a>
+      <a href="#exam">▤ <span>Prüfungsmodus</span></a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <span class="local-dot"></span> Lokal auf deinem Rechner
+      <small>Deine Lerndaten bleiben in diesem Browser.</small>
+      <button id="theme" class="quiet">◐ Darstellung wechseln</button>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <span>Learning by Doing</span>
+      <span class="chip">IHK · Klausuren · Tests</span>
+    </header>
+    <div id="storage-warning" role="status"></div>
+    <div id="app"></div>
+    <footer>
+      Eigene Unterlagen bleiben lokal · Beispielaufgaben sind keine offiziellen IHK-Prüfungen
+      <span>Verstehen. Wiederholen. Anwenden.</span>
+    </footer>
+  </main>
+</body>
+</html>
