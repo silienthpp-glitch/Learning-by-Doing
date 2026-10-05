@@ -86,7 +86,11 @@ function render(){
 }
 
 function dashboard(){
-  const l=level(),active=[...state.sets].sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')).slice(0,4);
+  const l=level(),today=new Date().toLocaleDateString('sv-SE'),active=[...state.sets].sort((a,b)=>{
+    const rank=s=>!s.date?1:(s.date>=today?0:2),ra=rank(a),rb=rank(b);
+    if(ra!==rb)return ra-rb;
+    return ra===2?(b.date||'').localeCompare(a.date||''):(a.date||'9999').localeCompare(b.date||'9999');
+  }).slice(0,4);
   app.innerHTML=head('Dein nächster Aha-Moment.','Lerne für IHK, Klausuren und Tests – Fach für Fach und in deinem Tempo.','Level '+l.n)+
   '<section class="hero"><div><div class="eyebrow">DEINE NÄCHSTE LERNRUNDE</div><h2>Üben, verstehen,<br>noch einmal anwenden.</h2><p>Falsche Antworten werden wiederholt. Eigene Unterlagen kannst du einem Fach und Lernset zuordnen.</p><div class="actions"><button data-start="learn">Lernen starten</button><a class="button quiet" href="#library">Unterlagen hinzufügen</a></div></div><div class="ring" style="--value:'+pct(questions())+'%"><div><strong>'+pct(questions())+'%</strong><small>sicher gelernt</small></div></div></section>'+
   stats()+
@@ -161,7 +165,7 @@ function renderQuestion(){
 }
 function norm(v){return String(v??'').trim().toLowerCase().replace(/,/g,'.').replace(/\s+/g,' ')}
 function numericValue(v){
-  const n=norm(v),m=n.match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))(?:\s*[^0-9].*)?$/);
+  const n=norm(v),m=n.match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))(?:\s*[a-zäöüßµ%€$\/²³.-]+)?$/i);
   return m?Number(m[1]):NaN;
 }
 function correct(q,v){
@@ -380,7 +384,19 @@ function bind(){
 }
 function download(name,value){const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),500)}
 async function restore(e){
-  const t=document.querySelector('#restore-status');try{const f=e.target.files[0];if(!f)return;const v=JSON.parse(await f.text());if(![1,2].includes(v.version))throw Error('Unbekannte Sicherungsversion.');if(!confirm('Aktuelle Lerndaten durch diese Sicherung ersetzen?'))return;state=v.version===2?{...blank(),...v}:{...blank(),...v,version:2,sets:[],sources:[],games:[]};save();render()}catch(err){if(t)t.textContent='Wiederherstellung nicht möglich: '+err.message}
+  const t=document.querySelector('#restore-status');
+  try{
+    const f=e.target.files[0];if(!f)return;
+    const v=JSON.parse(await f.text());
+    if(![1,2].includes(v.version))throw Error('Unbekannte Sicherungsversion.');
+    if(!v.records||typeof v.records!=='object'||Array.isArray(v.records)||!Array.isArray(v.history)||!Array.isArray(v.custom))throw Error('Die Sicherungsdatei ist unvollständig oder beschädigt.');
+    if(v.version===2&&(!Array.isArray(v.sets)||!Array.isArray(v.sources)||!Array.isArray(v.games)))throw Error('Die Sicherungsdatei enthält nicht alle benötigten Lernset-Daten.');
+    if(!confirm('Aktuelle Lerndaten durch diese Sicherung ersetzen?'))return;
+    state=v.version===2?{...blank(),...v}:{...blank(),...v,version:2,sets:[],sources:[],games:[]};
+    save();message='Sicherung erfolgreich wiederhergestellt.';render();
+  }catch(err){
+    if(t)t.textContent='Wiederherstellung nicht möglich: '+err.message;
+  }
 }
 
 document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{
