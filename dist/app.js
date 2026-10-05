@@ -3,7 +3,7 @@ const KEY='learning-by-doing-v2',LEGACY='learning-by-doing-v1',DAY=86400000;
 const app=document.querySelector('#app');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const id=p=>p+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
-const blank=()=>({version:2,records:{},history:[],custom:[],sets:[],sources:[],games:[],theme:'light'});
+const blank=()=>({version:2,records:{},history:[],custom:[],sets:[],sources:[],games:[],theme:'light',quoteShift:0});
 let state=blank(),session=null,game=null,message='';
 
 try{
@@ -17,6 +17,45 @@ try{
 
 function warn(t){const e=document.querySelector('#storage-warning');if(e)e.innerHTML='<p class="error-banner">'+esc(t)+'</p>'}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{warn('Der Browser kann deinen Fortschritt nicht speichern. Bitte exportiere eine Sicherung.')}}
+
+
+const MOTIVATION_QUOTES = [
+  {category:'Jesus',icon:'✝',text:'Bei Gott sind alle Dinge möglich.',source:'Matthäus 19,26 · Luther 1912'},
+  {category:'Jesus',icon:'✝',text:'Alles ist möglich dem, der da glaubt.',source:'Markus 9,23 · Luther 1912'},
+  {category:'Bibel',icon:'📖',text:'Sei getrost und unverzagt.',source:'Josua 1,9 · Luther 1912'},
+  {category:'Bibel',icon:'📖',text:'Des Menschen Herz erdenkt sich seinen Weg; aber der HERR allein lenkt seinen Gang.',source:'Sprüche 16,9 · Luther 1912'},
+  {category:'Philosophie',icon:'🏛',text:'Konzentriere deine Kraft auf das, was du beeinflussen kannst.',source:'Sinngemäß nach Marcus Aurelius'},
+  {category:'Philosophie',icon:'🏛',text:'Schwierigkeiten werden kleiner, wenn du ihnen Schritt für Schritt begegnest.',source:'Sinngemäß nach Seneca'},
+  {category:'Philosophie',icon:'🏛',text:'Der Anfang einer Veränderung ist, ehrlich zu erkennen, was du noch nicht weißt.',source:'Sinngemäß nach Sokrates'},
+  {category:'Sport',icon:'🏆',text:'Disziplin bedeutet, auch dann weiterzumachen, wenn die Motivation gerade fehlt.',source:'Motivationsgedanke aus dem Leistungssport'},
+  {category:'Sport',icon:'🏆',text:'Fortschritt entsteht nicht durch einen perfekten Tag, sondern durch viele gute Wiederholungen.',source:'Inspiriert vom Trainingsprinzip im Sport'},
+  {category:'Unternehmertum',icon:'🚀',text:'Eine Idee wird erst wertvoll, wenn du beginnst, sie umzusetzen und daraus zu lernen.',source:'Motivationsgedanke aus dem Unternehmertum'},
+  {category:'Unternehmertum',icon:'🚀',text:'Fehler sind Daten: Nutze sie, verbessere deinen nächsten Versuch und gehe weiter.',source:'Inspiriert von iterativem Arbeiten'},
+  {category:'Film',icon:'🎬',text:'Nicht der Rückschlag entscheidet, sondern ob du danach wieder aufstehst.',source:'Inspiriert von Rocky'},
+  {category:'Film',icon:'🎬',text:'Große Aufgaben wirken kleiner, wenn du den nächsten machbaren Schritt wählst.',source:'Inspiriert von Abenteuer- und Heldenfilmen'},
+  {category:'Buch',icon:'📚',text:'Wissen wächst, wenn du es anwendest – nicht nur, wenn du es liest.',source:'Inspiriert von Learning-by-Doing'},
+  {category:'Buch',icon:'📚',text:'Du musst nicht alles heute können. Du musst heute nur etwas besser verstehen als gestern.',source:'Lernmotivationsgedanke'},
+  {category:'Lernen',icon:'🧠',text:'Eine falsche Antwort ist kein Ende. Sie zeigt dir genau, was du als Nächstes lernen kannst.',source:'Learning by Doing'},
+  {category:'Lernen',icon:'🧠',text:'Verstehen schlägt Auswendiglernen – besonders dann, wenn die Aufgabe plötzlich anders gestellt wird.',source:'Learning by Doing'},
+  {category:'Lernen',icon:'🧠',text:'Zehn konzentrierte Minuten heute sind besser als zwei Stunden, die du immer wieder verschiebst.',source:'Learning by Doing'}
+];
+function motivationIndex(){
+  const slot=Math.floor(Date.now()/(30*60*1000));
+  return (slot+(Number(state.quoteShift)||0))%MOTIVATION_QUOTES.length;
+}
+function motivationCard(){
+  const q=MOTIVATION_QUOTES[motivationIndex()];
+  return '<section class="motivation-card" id="motivation-card"><div class="motivation-icon">'+esc(q.icon)+'</div><div class="motivation-copy"><div class="motivation-top"><span class="tag">'+esc(q.category)+'</span><span class="small">wechselt automatisch</span></div><blockquote>„'+esc(q.text)+'“</blockquote><p>'+esc(q.source)+'</p></div><button class="quiet motivation-next" id="motivation-next" type="button" title="Anderen Motivationsspruch anzeigen">↻ Neuer Spruch</button></section>';
+}
+function refreshMotivation(){
+  const node=document.querySelector('#motivation-card');
+  if(!node)return;
+  const q=MOTIVATION_QUOTES[motivationIndex()];
+  node.querySelector('.motivation-icon').textContent=q.icon;
+  node.querySelector('.tag').textContent=q.category;
+  node.querySelector('blockquote').textContent='„'+q.text+'“';
+  node.querySelector('.motivation-copy > p').textContent=q.source;
+}
 
 function questions(){
   return [...(window.EXAMPLE_QUESTIONS||[]).map(q=>({...q,subject:q.subject||'IHK AP2',setId:q.setId||'',sourceName:q.sourceName||'Beispielaufgaben'})),...(state.custom||[])];
@@ -93,7 +132,7 @@ function dashboard(){
   }).slice(0,4);
   app.innerHTML=head('Dein nächster Aha-Moment.','Lerne für IHK, Klausuren und Tests – Fach für Fach und in deinem Tempo.','Level '+l.n)+
   '<section class="hero"><div><div class="eyebrow">DEINE NÄCHSTE LERNRUNDE</div><h2>Üben, verstehen,<br>noch einmal anwenden.</h2><p>Falsche Antworten werden wiederholt. Eigene Unterlagen kannst du einem Fach und Lernset zuordnen.</p><div class="actions"><button data-start="learn">Lernen starten</button><a class="button quiet" href="#library">Unterlagen hinzufügen</a></div></div><div class="ring" style="--value:'+pct(questions())+'%"><div><strong>'+pct(questions())+'%</strong><small>sicher gelernt</small></div></div></section>'+
-  stats()+
+  stats()+motivationCard()+
   '<div class="two"><section class="card"><div class="section-head"><h2>Deine Fächer</h2><a href="#library">Verwalten</a></div>'+rows('subject')+'</section><section class="card"><span class="tag">LEVEL '+l.n+'</span><h2>'+l.cur+' / '+l.step+' XP bis Level '+(l.n+1)+'</h2><progress max="'+l.step+'" value="'+l.cur+'"></progress><p>Richtige Antworten, gemeisterte Aufgaben und Lernspiele geben XP.</p><div class="mini-badges"><span>🔥 '+streak()+' Tage</span><span>🧠 '+questions().filter(mastered).length+' gemeistert</span><span>🎮 '+(state.games||[]).length+' Spiele</span></div></section></div>'+
   '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Deine Klausuren & Tests</h2><a href="#library">Neues Lernset</a></div>'+(active.length?'<div class="set-grid">'+active.map(setCard).join('')+'</div>':'<div class="empty-state"><strong>Noch kein eigenes Lernset.</strong><p>Lege zum Beispiel „Netzwerktechnik Klausur 2“ oder „WiSo Test Freitag“ an.</p><a class="button" href="#library">Erstes Lernset anlegen</a></div>')+'</section>';
 }
@@ -372,6 +411,7 @@ function finishGame(){game=null;location.hash='games';render()}
 
 function bind(){
   document.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>start(b.dataset.start));
+  document.querySelector('#motivation-next')?.addEventListener('click',()=>{state.quoteShift=(Number(state.quoteShift)||0)+1;save();refreshMotivation();});
   document.querySelectorAll('[data-topic]').forEach(b=>b.onclick=()=>start('learn',{topic:b.dataset.topic}));
   document.querySelectorAll('[data-set-learn]').forEach(b=>b.onclick=()=>start('learn',{setId:b.dataset.setLearn}));
   document.querySelectorAll('[data-set-delete]').forEach(b=>b.onclick=()=>deleteSet(b.dataset.setDelete));
@@ -407,4 +447,5 @@ window.addEventListener('beforeunload',e=>{
 });
 window.addEventListener('hashchange',()=>{session=null;game=null;render()});
 document.querySelector('#theme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';save();render()};
+setInterval(refreshMotivation,60*1000);
 render();
