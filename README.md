@@ -100,7 +100,7 @@ Die Sammlung enthält mehrere Kategorien:
 - Bücher
 - Lernen
 
-Kurze gemeinfreie Bibelstellen werden mit Quelle angegeben. Bei modernen Personen, Filmen oder Büchern verwendet die App bewusst sinngemäße, als Inspiration gekennzeichnete Formulierungen statt längerer geschützter Originalzitate.
+Für Bibelstellen verwendet die App jetzt die Übersetzung **Hoffnung für alle (HFA)** als Grundlage. Da HFA urheberrechtlich geschützt ist, werden die Aussagen überwiegend sinngemäß formuliert und mit der jeweiligen Bibelstelle sowie „HFA“ gekennzeichnet. Bei modernen Personen, Filmen oder Büchern nutzt die App ebenfalls bewusst sinngemäße, als Inspiration gekennzeichnete Formulierungen statt längerer geschützter Originalzitate.
 
 Die Sprüche liegen lokal im Projekt und benötigen beim normalen Anzeigen keine Internetverbindung.
 
