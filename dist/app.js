@@ -1,45 +1,321 @@
-/* Navigation, Lernrunden und lokale Speicherung – ohne Framework. */
-const KEY = 'learning-by-doing-v1';
-const app = document.querySelector('#app');
-const escapeHTML = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const blank = () => ({version:1,records:{},history:[],custom:[],theme:'light'});
-let state = blank(), session = null, importedMessage = '';
-try {const stored=JSON.parse(localStorage.getItem(KEY)); if(stored && stored.version===1 && stored.records && Array.isArray(stored.history) && Array.isArray(stored.custom)){state={...blank(),...stored};state.custom=validateQuestions(state.custom,true);}} catch { warn('Deine gespeicherten Daten konnten nicht geladen werden. Du kannst weiterlernen; sichere neue Fortschritte über „Fortschritt“.'); }
-function warn(message){document.querySelector('#storage-warning').innerHTML=`<p class="error-banner">${escapeHTML(message)}</p>`;}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch{warn('Der Browser kann den Fortschritt nicht speichern. Exportiere ihn unter „Fortschritt“, bevor du die Seite schließt.');}}
-function questions(){return [...window.EXAMPLE_QUESTIONS,...state.custom];}
-function record(q){return state.records[q.id] || {attempts:0,correct:0,streak:0,due:0,last:0};}
-function mastered(q){return record(q).streak>=3;}
-function percentage(list){return list.length?Math.round(list.filter(mastered).length/list.length*100):0;}
-function topicNames(){return [...new Set(questions().map(q=>q.topic))];}
-function errors(){return questions().filter(q=>record(q).attempts>0 && record(q).streak<3);}
-function due(list){return list.filter(q=>record(q).due<=Date.now());}
-function heading(title,sub){return `<div class="heading"><div><h1>${title}</h1><p>${sub}</p></div><span class="chip">Dein Tempo zählt</span></div>`;}
-function stats(){const today=new Date().toLocaleDateString('sv-SE');const h=state.history.filter(x=>new Date(x.at).toLocaleDateString('sv-SE')===today);return `<div class="grid"><div class="card"><div class="stat-label">Heute beantwortet</div><div class="stat">${h.length}</div><div class="small">${h.filter(x=>x.correct).length} davon richtig</div></div><div class="card"><div class="stat-label">Zur Wiederholung</div><div class="stat">${errors().length}</div><div class="small">${due(errors()).length} jetzt fällig</div></div><div class="card"><div class="stat-label">Sicher gelernt</div><div class="stat">${questions().filter(mastered).length}<span class="stat-label"> / ${questions().length}</span></div><div class="small">3 richtige Antworten in Folge</div></div></div>`;}
-function topicRows(){return topicNames().map(t=>{const list=questions().filter(q=>q.topic===t);const pct=percentage(list);return `<div class="topic-row"><div class="topic-line"><strong>${escapeHTML(t)}</strong><small>${pct}% sicher</small></div><progress max="100" value="${pct}" aria-label="${escapeHTML(t)}: ${pct} Prozent sicher"></progress></div>`;}).join('');}
-function render(){document.body.classList.toggle('dark',state.theme==='dark');const route=location.hash.slice(1)||'dashboard';document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.hash==='#'+route));document.querySelector('#error-count').textContent=errors().length;
- if(session){renderQuestion();return;}
- if(route==='dashboard'){const pct=percentage(questions());app.innerHTML=heading('Dein nächster Aha-Moment.','Schön, dass du da bist. Lass uns Wissen in Verständnis verwandeln.')+`<section class="hero"><div><div class="eyebrow">DEINE NÄCHSTE LERNRUNDE</div><h2>Ein bisschen üben.<br>Ein Stück mehr verstehen.</h2><p>Kurze Fragen, klare Erklärungen und Rechenwege, die du Schritt für Schritt nachvollziehen kannst.</p><div class="actions"><button data-start="learn">Lernen starten</button><button class="quiet" data-start="errors">Fehler trainieren</button></div></div><div class="ring" style="--value:${pct}%"><div><strong>${pct}%</strong><small>sicher gelernt</small></div></div></section>`+stats()+`<div class="two"><section class="card"><div class="section-head"><h2>Deine Themen</h2><a href="#topics">Alle ansehen</a></div>${topicRows()}</section><section class="card"><span class="tag">SO LERNST DU</span><h2 style="margin-top:20px">Verstehen bleibt hängen.</h2><p>Eine falsche Antwort ist ein guter Anfang. Lies die Erklärung, rechne selbst nach und versuche es später erneut.</p><div class="hint"><strong>Dein Wiederholungsrhythmus</strong><br>Falsch? Bald noch einmal.<br>Richtig? In 1, 3 und 7 Tagen wieder.<br>3-mal in Folge richtig? Sicher gelernt.</div><p class="small">„Sicher gelernt“ beschreibt deinen Fortschritt in diesen Aufgaben, keine Vorhersage deiner IHK-Prüfungsnote.</p><a href="#learn" class="button">Eine Lernrunde beginnen</a></section></div>`;}
- else if(route==='learn'||route==='errors'){const isError=route==='errors';app.innerHTML=heading(isError?'Aus Fehlern wird Verständnis.':'Was möchtest du heute verstehen?',isError?'Hier übst du Aufgaben, die noch nicht sicher sitzen.':'Wähle ein Thema oder lerne quer durch alle Bereiche.')+`<div class="card"><h2>${isError?'Deine Wiederholungsrunde':'Eine Frage nach der anderen'}</h2><p>${isError?`${errors().length} Aufgaben sind noch in Wiederholung. Davon sind ${due(errors()).length} jetzt fällig. Du kannst sie auch vorzeitig üben.`:'Fällige Wiederholungen kommen zuerst, danach neue Aufgaben. Du erhältst direkt eine Rückmeldung und eine verständliche Erklärung.'}</p><div class="toolbar"><label for="topic-select">Thema</label><select id="topic-select"><option value="">Alle Themen</option>${topicNames().map(t=>`<option>${escapeHTML(t)}</option>`).join('')}</select><button data-start="${route}">${isError?'Wiederholung starten':'Lernrunde starten'}</button></div><div class="hint">Eine Runde umfasst bis zu 10 Aufgaben. Falsche Aufgaben erscheinen nach mindestens zwei anderen Fragen erneut. Gibt es nur wenige Aufgaben, bekommst du vor der Wiederholung die Erklärung.</div></div>`;}
- else if(route==='topics'){app.innerHTML=heading('Ein Thema. Ein Schritt weiter.','Von Netzwerken bis Wirtschaft – finde deinen Einstieg.')+`<div class="topic-cards">${topicNames().map(t=>{const list=questions().filter(q=>q.topic===t);return `<section class="card"><span class="tag">${list.length} Aufgaben</span><h2>${escapeHTML(t)}</h2><p>${list.filter(mastered).length} sicher gelernt · ${list.filter(q=>record(q).attempts===0).length} noch neu</p><progress max="100" value="${percentage(list)}" aria-label="Lernfortschritt ${escapeHTML(t)}"></progress><button data-topic="${escapeHTML(t)}">Dieses Thema lernen</button></section>`;}).join('')}</div><section class="card" style="margin-top:24px"><h2>Deine eigenen Prüfungsfragen</h2><p>Importiere geprüfte Fragen als JSON. PDFs und Freitextantworten müssen zuerst in eindeutige Aufgaben mit Lösungen und Erklärungen übertragen werden.</p><label for="import">Aufgabendatei auswählen</label><input id="import" type="file" accept=".json,application/json"><p id="import-status" role="status" style="margin-top:16px">${escapeHTML(importedMessage)}</p></section>`;}
- else if(route==='progress'){const attempts=state.history.length;app.innerHTML=heading('Du kommst voran.','Jede beantwortete Frage bringt dich einen Schritt weiter.')+stats()+`<div class="two"><section class="card"><h2>Fortschritt je Thema</h2>${topicRows()}</section><section class="card"><h2>Dein bisheriger Lernweg</h2><div class="big-number">${attempts?Math.round(state.history.filter(x=>x.correct).length/attempts*100):0}%</div><p>Richtige Antworten bei ${attempts} Versuchen. Wiederholungen zählen mit.</p><p>${questions().filter(q=>record(q).attempts>0).length} von ${questions().length} Aufgaben ausprobiert.</p><div class="hint">3 richtige Antworten in Folge gelten als sicher. Fällige Aufgaben kommen trotzdem wieder dran, damit das Wissen bleibt.</div><h3>Fortschritt sichern</h3><p class="small">Die Daten gehören zu diesem Browser und dieser Webadresse. Beim Löschen der Browserdaten gehen sie verloren.</p><div class="actions"><button id="export">Sicherung herunterladen</button></div><p style="margin-top:18px"><label for="restore">Sicherung wiederherstellen</label><input id="restore" type="file" accept=".json,application/json"></p><p id="restore-status" role="status"></p></section></div>`;}
- else if(route==='exam'){app.innerHTML=heading('Ein Probelauf für dich.','Teste dein Wissen am Stück – mit Auswertung am Ende.')+`<div class="card"><span class="tag">BEISPIEL-PRÜFUNG</span><h2 style="margin-top:20px">Ohne Hinweise. Mit ehrlichem Feedback.</h2><p>10 zufällig ausgewählte Aufgaben, jeweils 2 Punkte. Lösungen erscheinen erst nach Abgabe. Die Beispielprüfung hat kein Zeitlimit und bildet keine offizielle IHK-Prüfung ab.</p><button data-start="exam">Probeprüfung starten</button><div class="hint"><strong>Vorbereitet für deine echten Prüfungen</strong><br>Aufgaben können Thema, Punkte, Antwort, Erklärung und Rechenweg enthalten. Importiere sie unter „Themen“. Prüfungsjahrgänge, originale Bewertungsschemata, offene Antworten und ein Zeitlimit sind noch nicht umgesetzt.</div></div>`;}
- else {location.hash='dashboard';return;}
- bind();}
-function start(mode,topic=''){let list=questions().filter(q=>!topic||q.topic===topic);if(mode==='errors')list=list.filter(q=>record(q).attempts&&record(q).streak<3);if(mode==='exam')list=list.map(q=>({q,sort:Math.random()})).sort((a,b)=>a.sort-b.sort).map(x=>x.q);else list.sort((a,b)=>{const rank=q=>record(q).attempts&&record(q).due<=Date.now()?0:!record(q).attempts?1:2;return rank(a)-rank(b)||record(a).due-record(b).due;});session={mode,queue:list.slice(0,10),index:0,answered:false,results:[],topic};render();}
-function bind(){document.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>start(b.dataset.start,document.querySelector('#topic-select')?.value||''));document.querySelectorAll('[data-topic]').forEach(b=>b.onclick=()=>start('learn',b.dataset.topic));document.querySelector('#export')?.addEventListener('click',()=>download('learning-by-doing-sicherung.json',state));document.querySelector('#import')?.addEventListener('change',e=>importFile(e,false));document.querySelector('#restore')?.addEventListener('change',e=>importFile(e,true));}
-function renderQuestion(){const s=session,q=s.queue[s.index];if(!q){renderSummary();return;}app.innerHTML=heading(s.mode==='exam'?'Deine Probeprüfung':s.mode==='errors'?'Du kannst das verstehen.':'Zeit für einen Aha-Moment.',s.mode==='exam'?'Die Auswertung folgt nach der letzten Antwort.':'Denk in Ruhe nach. Es geht ums Verstehen.')+`<section class="card question"><div class="topic-line"><span class="tag">${escapeHTML(q.topic)}</span><small>Aufgabe ${s.index+1} von ${s.queue.length}${s.mode==='exam'?` · ${q.points} Punkte`:''}</small></div><progress value="${s.index}" max="${s.queue.length}" aria-label="Fortschritt der Runde"></progress><h2>${escapeHTML(q.prompt)}</h2><form id="answer-form">${q.type==='choice'?`<div class="options">${q.options.map((o,i)=>`<label class="option"><input type="radio" name="answer" value="${escapeHTML(o)}" required><span>${escapeHTML(o)}</span></label>`).join('')}</div>`:`<label for="answer">Deine Antwort (nur die Zahl)</label><input id="answer" name="answer" type="text" inputmode="decimal" autocomplete="off" required placeholder="Zum Beispiel: 62">`}<div class="actions"><button type="submit">${s.mode==='exam'?'Antwort abgeben':'Antwort prüfen'}</button><button type="button" class="quiet" id="end">Runde beenden</button></div></form><div id="feedback" aria-live="polite"></div></section>`;document.querySelector('#answer-form').onsubmit=e=>{e.preventDefault();submit(new FormData(e.target).get('answer'));};document.querySelector('#end').onclick=()=>{if(s.mode==='exam'&&s.results.length){renderSummary(true);}else{session=null;render();}};}
-function normalize(value){return String(value).trim().toLowerCase().replace(/,/g,'.').replace(/\s+/g,' ');}
-function isCorrect(q,value){const n=normalize(value);if(q.type==='number'){if(!/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(n))return false;return Number(n)===Number(normalize(q.answer));}return [q.answer,...q.aliases].some(a=>normalize(a)===n);}
-function updateRecord(q,correct){const r={...record(q)};r.attempts++;r.correct+=Number(correct);r.streak=correct?r.streak+1:0;r.last=Date.now();r.due=r.last+(correct?[1,3,7,14][Math.min(r.streak-1,3)]*86400000:60000);state.records[q.id]=r;state.history.push({id:q.id,at:r.last,correct});}
-function explanation(q,correct,answer){return `<div class="feedback ${correct?'':'wrong'}"><h3>${correct?'Richtig. Gut gemacht!':'Noch nicht ganz – schauen wir es uns an.'}</h3>${answer!==undefined?`<p>Deine Antwort: <strong>${escapeHTML(answer)}</strong></p>`:''}<p>Die Lösung: <strong>${escapeHTML(q.answer)}</strong></p><p>${escapeHTML(q.explanation)}</p>${q.steps.length?`<h3>Schritt für Schritt</h3><ol>${q.steps.map(x=>`<li>${escapeHTML(x)}</li>`).join('')}</ol>`:''}</div>`;}
-function submit(answer){const s=session;if(!s||s.answered)return;const q=s.queue[s.index];if(!String(answer??'').trim())return;const correct=isCorrect(q,answer);s.answered=true;s.results.push({q,answer,correct});if(s.mode!=='exam'){updateRecord(q,correct);save();if(!correct&&s.queue.length<20){s.queue.splice(Math.min(s.index+3,s.queue.length),0,q);}document.querySelectorAll('#answer-form input,#answer-form button[type=submit]').forEach(x=>x.disabled=true);document.querySelector('#feedback').innerHTML=explanation(q,correct)+`<div class="hint">${correct?'Deine nächste Wiederholung ist in '+[1,3,7,14][Math.min(record(q).streak-1,3)]+([1,3,7,14][Math.min(record(q).streak-1,3)]===1?' Tag':' Tagen')+' fällig.':'Die Aufgabe kommt in dieser Runde noch einmal. Versuch dann, den Rechenweg selbst nachzuvollziehen.'}</div><button id="next">${s.index+1<s.queue.length?'Nächste Aufgabe':'Runde abschließen'}</button>`;document.querySelector('#next').onclick=next;document.querySelector('#next').focus();document.querySelector('#error-count').textContent=errors().length;}else next();}
-function next(){session.index++;session.answered=false;renderQuestion();window.scrollTo({top:0,behavior:'smooth'});}
-function renderSummary(early=false){const s=session;const results=s.results;if(s.mode==='exam'){results.forEach(x=>updateRecord(x.q,x.correct));save();}const right=results.filter(x=>x.correct).length;const earned=results.reduce((n,x)=>n+(x.correct?x.q.points:0),0),possible=s.queue.reduce((n,q)=>n+q.points,0);app.innerHTML=heading(results.length?'Eine Runde weiter.':'Hier ist gerade nichts zu üben.',results.length?'Nimm das Verständnis mit in deinen nächsten Versuch.':'Wähle ein anderes Thema oder starte eine allgemeine Lernrunde.')+`<section class="card question empty"><span class="tag">${s.mode==='exam'?'PRÜFUNGSAUSWERTUNG':'LERNRUNDE'}</span><div class="big-number">${right} / ${results.length}</div><h2>Antworten richtig</h2>${s.mode==='exam'?`<p>${earned} von ${possible} Punkten${early?' · vorzeitig abgegeben (unbeantwortete Aufgaben: 0 Punkte)':''}</p>`:''}<p>${results.length?'Gut weiterarbeiten: Lies die Erklärungen der schwierigen Fragen und übe sie erneut.':'Alle Aufgaben können auch vor ihrer Fälligkeit geübt werden.'}</p><button id="finish">Zum Dashboard</button></section>${s.mode==='exam'?results.map(x=>`<section class="question" style="margin-top:20px"><h3>${escapeHTML(x.q.prompt)}</h3>${explanation(x.q,x.correct,x.answer)}</section>`).join(''):''}`;session=null;document.querySelector('#finish').onclick=()=>{location.hash='dashboard';render();};}
-function validateQuestions(input,allowEmpty=false){if(!Array.isArray(input)||(!allowEmpty&&!input.length)||input.length>1000)throw Error('Erwartet wird eine Liste mit 1 bis 1.000 Aufgaben.');const ids=new Set();return input.map(q=>{if(!q||typeof q!=='object')throw Error('Jede Aufgabe muss ein Objekt sein.');for(const key of ['id','topic','prompt','answer','explanation'])if(typeof q[key]!=='string'||!q[key].trim()||q[key].length>10000)throw Error('Fehlendes oder ungültiges Feld: '+key);if(!/^[a-zA-Z0-9_-]{1,80}$/.test(q.id)||ids.has(q.id)||window.EXAMPLE_QUESTIONS.some(x=>x.id===q.id))throw Error('Aufgaben-IDs müssen eindeutig sein und dürfen nur Buchstaben, Zahlen, - und _ enthalten.');ids.add(q.id);if(!['choice','number'].includes(q.type))throw Error('Typ muss choice oder number sein.');if(!Array.isArray(q.steps)||q.steps.some(x=>typeof x!=='string'))throw Error('steps muss eine Liste von Texten sein.');if(q.type==='number'&&!/^[+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+)$/.test(q.answer))throw Error('Eine Zahlenaufgabe benötigt eine reine Zahl als answer.');if(q.type==='choice'&&(!Array.isArray(q.options)||q.options.length<2||q.options.length>8||q.options.some(x=>typeof x!=='string')||new Set(q.options).size!==q.options.length||!q.options.includes(q.answer)))throw Error('Auswahlaufgaben benötigen 2–8 verschiedene Optionen einschließlich der Lösung.');if(q.aliases!==undefined&&(!Array.isArray(q.aliases)||q.aliases.some(x=>typeof x!=='string')))throw Error('aliases muss eine Liste von Texten sein.');if(!Number.isInteger(q.points)||q.points<1||q.points>100)throw Error('points muss zwischen 1 und 100 liegen.');return {...q,aliases:q.aliases||[],options:q.options||[]};});}
-async function importFile(event,restore){const target=document.querySelector(restore?'#restore-status':'#import-status');try{const file=event.target.files[0];if(!file)return;if(file.size>5000000)throw Error('Datei ist größer als 5 MB.');const value=JSON.parse(await file.text());if(restore){if(value.version!==1||!Array.isArray(value.history)||typeof value.records!=='object'||!value.records||Array.isArray(value.records))throw Error('Ungültige Sicherung.');const custom=validateQuestions(value.custom,true);const allIds=new Set([...window.EXAMPLE_QUESTIONS,...custom].map(q=>q.id));for(const [id,r] of Object.entries(value.records)){if(!allIds.has(id)||!r||!['attempts','correct','streak','due','last'].every(k=>Number.isFinite(r[k])&&r[k]>=0)||!['attempts','correct','streak'].every(k=>Number.isInteger(r[k]))||r.correct>r.attempts||r.streak>r.correct)throw Error('Ungültige Fortschrittsdaten.');}if(value.history.some(h=>!h||!allIds.has(h.id)||!Number.isFinite(h.at)||h.at<0||typeof h.correct!=='boolean'))throw Error('Ungültiger Lernverlauf.');if(!confirm('Die Sicherung ersetzt deinen aktuellen Fortschritt und deine eigenen Aufgaben. Fortfahren?'))return;state={...blank(),...value,custom,theme:value.theme==='dark'?'dark':'light'};save();render();document.querySelector('#restore-status').textContent='Sicherung wiederhergestellt.';}else{const list=validateQuestions(value);if(list.some(q=>state.custom.some(x=>x.id===q.id)))throw Error('Eine dieser IDs wurde bereits importiert. Vergib neue IDs.');state.custom.push(...list);save();importedMessage=list.length+(list.length===1?' Aufgabe':' Aufgaben')+' erfolgreich importiert.';render();}}catch(error){target.textContent='Import nicht möglich: '+error.message;}}
-function download(name,data){const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-window.addEventListener('hashchange',()=>{session=null;render();window.scrollTo(0,0);});document.querySelector('#theme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';save();document.body.classList.toggle('dark',state.theme==='dark');};render();
-if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:'get_learning_progress',description:'Liest den lokalen Lernfortschritt und fällige Wiederholungen.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute(input){if(!input||Object.keys(input).length)throw Error('Keine Parameter erwartet.');return {total:questions().length,mastered:questions().filter(mastered).length,due:due(questions()).length};}})).catch(()=>{});}catch{}}
-// Auch die aktuell markierte Navigation beendet eine laufende Runde.
-document.querySelectorAll('nav a,.brand').forEach(a=>a.addEventListener('click',()=>{session=null;if(a.hash===(location.hash||'#dashboard'))render();}));
+/* Learning by Doing – lokaler Lerntrainer ohne Framework */
+const KEY='learning-by-doing-v2',LEGACY='learning-by-doing-v1',DAY=86400000;
+const app=document.querySelector('#app');
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const id=p=>p+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
+const blank=()=>({version:2,records:{},history:[],custom:[],sets:[],sources:[],games:[],theme:'light'});
+let state=blank(),session=null,game=null,message='';
+
+try{
+  const v2=JSON.parse(localStorage.getItem(KEY));
+  if(v2?.version===2) state={...blank(),...v2};
+  else{
+    const v1=JSON.parse(localStorage.getItem(LEGACY));
+    if(v1?.version===1){state={...blank(),records:v1.records||{},history:v1.history||[],custom:v1.custom||[],theme:v1.theme||'light'};save();}
+  }
+}catch{warn('Gespeicherte Daten konnten nicht geladen werden.');}
+
+function warn(t){const e=document.querySelector('#storage-warning');if(e)e.innerHTML='<p class="error-banner">'+esc(t)+'</p>'}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{warn('Der Browser kann deinen Fortschritt nicht speichern. Bitte exportiere eine Sicherung.')}}
+
+function questions(){
+  return [...(window.EXAMPLE_QUESTIONS||[]).map(q=>({...q,subject:q.subject||'IHK AP2',setId:q.setId||'',sourceName:q.sourceName||'Beispielaufgaben'})),...(state.custom||[])];
+}
+function rec(q){return state.records[q.id]||{attempts:0,correct:0,streak:0,due:0,last:0}}
+function mastered(q){return rec(q).streak>=3}
+function pct(list){return list.length?Math.round(list.filter(mastered).length/list.length*100):0}
+function errors(){return questions().filter(q=>rec(q).attempts&&rec(q).streak<3)}
+function subjects(){return [...new Set(questions().map(q=>q.subject||'Allgemein'))].sort()}
+function topics(){return [...new Set(questions().map(q=>q.topic))].sort()}
+function bySet(s){return questions().filter(q=>q.setId===s)}
+function setById(s){return state.sets.find(x=>x.id===s)}
+function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function formatDate(v){if(!v)return'';const[y,m,d]=v.split('-');return d+'.'+m+'.'+y}
+function totalXp(){return state.history.reduce((n,x)=>n+(x.correct?12:4),0)+questions().filter(mastered).length*25+(state.games||[]).reduce((n,x)=>n+(x.xp||0),0)}
+function level(){const xp=totalXp(),step=250;return{xp,n:Math.floor(xp/step)+1,cur:xp%step,step}}
+function streak(){
+  const ds=new Set(state.history.map(x=>new Date(x.at).toLocaleDateString('sv-SE')));let n=0,d=new Date();
+  while(ds.has(d.toLocaleDateString('sv-SE'))){n++;d.setDate(d.getDate()-1)}return n;
+}
+function head(t,s,c='Dein Tempo zählt'){return '<div class="heading"><div><h1>'+esc(t)+'</h1><p>'+esc(s)+'</p></div><span class="chip">'+esc(c)+'</span></div>'}
+function stats(){
+  const today=new Date().toLocaleDateString('sv-SE'),h=state.history.filter(x=>new Date(x.at).toLocaleDateString('sv-SE')===today),l=level();
+  return '<div class="grid stats-grid">'+
+    '<div class="card stat-card"><div class="stat-label">Heute beantwortet</div><div class="stat">'+h.length+'</div><div class="small">'+h.filter(x=>x.correct).length+' richtig</div></div>'+
+    '<div class="card stat-card"><div class="stat-label">Zur Wiederholung</div><div class="stat">'+errors().length+'</div><div class="small">'+errors().filter(q=>rec(q).due<=Date.now()).length+' jetzt fällig</div></div>'+
+    '<div class="card stat-card"><div class="stat-label">Level</div><div class="stat">'+l.n+'</div><div class="small">'+l.xp+' XP insgesamt</div></div>'+
+    '<div class="card stat-card"><div class="stat-label">Lernserie</div><div class="stat">'+streak()+'</div><div class="small">Tage in Folge</div></div></div>';
+}
+function rows(key){
+  const values=key==='subject'?subjects():topics();
+  return values.map(v=>{const list=questions().filter(q=>(key==='subject'?(q.subject||'Allgemein'):q.topic)===v);return '<div class="topic-row"><div class="topic-line"><strong>'+esc(v)+'</strong><small>'+pct(list)+'% sicher · '+list.length+' Aufgaben</small></div><progress max="100" value="'+pct(list)+'"></progress></div>'}).join('');
+}
+function setCard(s){
+  const list=bySet(s.id),sources=state.sources.filter(x=>x.setId===s.id).length;
+  return '<article class="set-card"><div class="topic-line"><span class="tag">'+esc(s.kind)+'</span>'+(s.date?'<small>'+esc(formatDate(s.date))+'</small>':'')+'</div><h3>'+esc(s.name)+'</h3><p>'+esc(s.subject)+'</p><progress max="100" value="'+pct(list)+'"></progress><div class="small">'+pct(list)+'% sicher · '+list.length+' Karten/Fragen · '+sources+' Dateien</div><div class="actions compact"><button data-set-learn="'+esc(s.id)+'">Lernen</button><button class="quiet" data-set-delete="'+esc(s.id)+'">Löschen</button></div></article>';
+}
+
+function render(){
+  document.body.classList.toggle('dark',state.theme==='dark');
+  const route=location.hash.slice(1)||'dashboard';
+  document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.hash==='#'+route));
+  document.querySelector('#error-count').textContent=errors().length;
+  if(session){renderQuestion();return}
+  if(game){renderGame();return}
+  if(route==='dashboard') dashboard();
+  else if(route==='learn'||route==='errors') learn(route);
+  else if(route==='library') library();
+  else if(route==='games') gamesHome();
+  else if(route==='topics') topicsView();
+  else if(route==='progress') progress();
+  else if(route==='exam') exam();
+  else{location.hash='dashboard';return}
+  bind();
+}
+
+function dashboard(){
+  const l=level(),active=[...state.sets].sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')).slice(0,4);
+  app.innerHTML=head('Dein nächster Aha-Moment.','Lerne für IHK, Klausuren und Tests – Fach für Fach und in deinem Tempo.','Level '+l.n)+
+  '<section class="hero"><div><div class="eyebrow">DEINE NÄCHSTE LERNRUNDE</div><h2>Üben, verstehen,<br>noch einmal anwenden.</h2><p>Falsche Antworten werden wiederholt. Eigene Unterlagen kannst du einem Fach und Lernset zuordnen.</p><div class="actions"><button data-start="learn">Lernen starten</button><a class="button quiet" href="#library">Unterlagen hinzufügen</a></div></div><div class="ring" style="--value:'+pct(questions())+'%"><div><strong>'+pct(questions())+'%</strong><small>sicher gelernt</small></div></div></section>'+
+  stats()+
+  '<div class="two"><section class="card"><div class="section-head"><h2>Deine Fächer</h2><a href="#library">Verwalten</a></div>'+rows('subject')+'</section><section class="card"><span class="tag">LEVEL '+l.n+'</span><h2>'+l.cur+' / '+l.step+' XP bis Level '+(l.n+1)+'</h2><progress max="'+l.step+'" value="'+l.cur+'"></progress><p>Richtige Antworten, gemeisterte Aufgaben und Lernspiele geben XP.</p><div class="mini-badges"><span>🔥 '+streak()+' Tage</span><span>🧠 '+questions().filter(mastered).length+' gemeistert</span><span>🎮 '+(state.games||[]).length+' Spiele</span></div></section></div>'+
+  '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Deine Klausuren & Tests</h2><a href="#library">Neues Lernset</a></div>'+(active.length?'<div class="set-grid">'+active.map(setCard).join('')+'</div>':'<div class="empty-state"><strong>Noch kein eigenes Lernset.</strong><p>Lege zum Beispiel „Netzwerktechnik Klausur 2“ oder „WiSo Test Freitag“ an.</p><a class="button" href="#library">Erstes Lernset anlegen</a></div>')+'</section>';
+}
+
+function learn(route){
+  const err=route==='errors';
+  app.innerHTML=head(err?'Aus Fehlern wird Verständnis.':'Was möchtest du heute lernen?',err?'Hier wiederholst du Aufgaben, die noch nicht sicher sitzen.':'Wähle Fach, Thema oder Lernset. Du kannst auch alles mischen.')+
+  '<section class="card"><h2>'+(err?'Deine Wiederholungsrunde':'Eine Frage nach der anderen')+'</h2><p>'+(err?errors().length+' Aufgaben sind noch in Wiederholung.':'Fällige Wiederholungen kommen zuerst. Lernkarten aus PDFs bewertest du selbst mit „Gewusst“ oder „Noch nicht“.')+'</p>'+
+  '<div class="filter-grid"><label>Fach<select id="subject-select"><option value="">Alle Fächer</option>'+subjects().map(s=>'<option>'+esc(s)+'</option>').join('')+'</select></label><label>Thema<select id="topic-select"><option value="">Alle Themen</option>'+topics().map(t=>'<option>'+esc(t)+'</option>').join('')+'</select></label><label>Lernset<select id="set-select"><option value="">Alle Lernsets</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label></div>'+
+  '<div class="actions"><button data-start="'+route+'">'+(err?'Wiederholung starten':'Lernrunde starten')+'</button></div><div class="hint">Eine Runde enthält bis zu 10 Aufgaben. Falsche Antworten kommen nach einigen anderen Fragen erneut.</div></section>';
+}
+
+function library(){
+  app.innerHTML=head('Fächer, Klausuren und Tests.','Organisiere mehrere Fächer gleichzeitig und ordne jede Datei dem passenden Lernset zu.',state.sets.length+' Lernsets')+
+  '<div class="two library-columns"><section class="card"><span class="tag">1 · LERNSET</span><h2>Neues Lernset anlegen</h2><p>Ein Lernset ist zum Beispiel eine Klausur, ein kurzer Test oder eine IHK-Prüfung.</p><form id="set-form" class="stack-form"><label>Name<input name="name" required maxlength="80" placeholder="z. B. Netzwerktechnik Klausur 2"></label><label>Fach<input name="subject" required maxlength="60" placeholder="z. B. Netzwerktechnik"></label><label>Art<select name="kind"><option>Klausur</option><option>Test</option><option>IHK</option><option>Sonstiges</option></select></label><label>Termin (optional)<input name="date" type="date"></label><button type="submit">Lernset anlegen</button></form></section>'+
+  '<section class="card"><span class="tag">2 · DATEIEN</span><h2>Unterlagen hinzufügen</h2><p>PDF, TXT, Markdown oder strukturierte JSON-Fragen. Mehrere Dateien dürfen gleichzeitig gewählt werden.</p><form id="material-form" class="stack-form"><label>Lernset<select name="setId" id="material-set" required><option value="">Bitte wählen</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label><label>Dateien<input id="material-files" type="file" multiple accept=".pdf,.txt,.md,.json,application/pdf,application/json,text/plain,text/markdown" required></label><button type="submit" '+(state.sets.length?'':'disabled')+'>Dateien einlesen</button></form><p id="material-status" class="status-text">'+esc(message)+'</p><div class="hint"><strong>Wichtig:</strong> JSON-Fragen können automatisch geprüft werden. Aus PDF/TXT entstehen Selbstkontroll-Lernkarten. Freie Antworten bewertet die Seite bewusst nicht automatisch.</div></section></div>'+
+  '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Deine Lernsets</h2><span class="small">Mehrere Fächer parallel möglich</span></div>'+(state.sets.length?'<div class="set-grid">'+state.sets.map(setCard).join('')+'</div>':'<div class="empty-state"><strong>Noch keine Lernsets.</strong><p>Lege oben dein erstes Lernset an.</p></div>')+'</section>'+
+  '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Importierte Dateien</h2><span class="small">'+state.sources.length+' gespeichert</span></div>'+(state.sources.length?'<div class="source-list">'+[...state.sources].reverse().map(s=>'<div><strong>'+esc(s.name)+'</strong><span>'+esc(setById(s.setId)?.name||s.subject)+' · '+(s.cards||0)+' Lernkarten</span></div>').join('')+'</div>':'<p class="muted">Noch keine eigenen Dateien importiert.</p>')+'</section>';
+}
+
+function gamesHome(){
+  app.innerHTML=head('Spiel dich schlauer.','Kurze Lernspiele greifen auf deine vorhandenen Fragen zurück.','Bonus-XP')+
+  '<div class="game-grid"><article class="card game-card"><div class="game-icon">🧠</div><span class="tag">MEMORY</span><h2>Frage & Antwort</h2><p>Finde passende Paare aus Frage und Lösung.</p><button data-game="memory">Memory starten</button></article><article class="card game-card"><div class="game-icon">🕵️</div><span class="tag">DETEKTIV</span><h2>Wissensdetektiv</h2><p>Löse drei Fälle. Jede richtige Antwort bringt einen Hinweis.</p><button data-game="detective">Fall übernehmen</button></article><article class="card game-card"><div class="game-icon">⚠️</div><span class="tag">WAS IST FALSCH?</span><h2>Fehler finden</h2><p>Eine Frage-Antwort-Zuordnung ist absichtlich falsch.</p><button data-game="wrong">Fehlerjagd starten</button></article></div>'+
+  '<section class="card" style="margin-top:24px"><h2>Warum Lernspiele?</h2><p>Sie ersetzen keine Prüfungssimulation, helfen aber beim schnellen Abrufen und Erkennen von Zusammenhängen.</p></section>';
+}
+
+function topicsView(){
+  app.innerHTML=head('Themen im Blick.','Sieh, welche Inhalte schon sicher sitzen und wo Wiederholung sinnvoll ist.')+
+  '<div class="topic-cards">'+topics().map(t=>{const list=questions().filter(q=>q.topic===t);return '<section class="card"><span class="tag">'+list.length+' Aufgaben</span><h2>'+esc(t)+'</h2><p>'+list.filter(mastered).length+' sicher gelernt · '+list.filter(q=>!rec(q).attempts).length+' noch neu</p><progress max="100" value="'+pct(list)+'"></progress><button data-topic="'+esc(t)+'">Dieses Thema lernen</button></section>'}).join('')+'</div>'+
+  '<section class="card" style="margin-top:24px"><h2>Strukturierte Fragen als JSON</h2><p>JSON eignet sich besonders für automatische Auswertung mit eindeutiger Lösung.</p><input id="import" type="file" accept=".json,application/json"><p id="import-status">'+esc(message)+'</p></section>';
+}
+
+function progress(){
+  const n=state.history.length,acc=n?Math.round(state.history.filter(x=>x.correct).length/n*100):0,l=level();
+  app.innerHTML=head('Du kommst voran.','Level, Fächer und Lernsets zeigen dir, wo du stehst.','Level '+l.n)+stats()+
+  '<div class="two"><section class="card"><h2>Fortschritt je Fach</h2>'+rows('subject')+'</section><section class="card"><h2>Dein Lernprofil</h2><div class="big-number">'+acc+'%</div><p>Richtige Antworten bei '+n+' Versuchen.</p><p>'+questions().filter(q=>rec(q).attempts).length+' von '+questions().length+' Aufgaben ausprobiert.</p><h3>Level '+l.n+'</h3><progress max="'+l.step+'" value="'+l.cur+'"></progress><p class="small">'+l.cur+' von '+l.step+' XP bis zum nächsten Level.</p></section></div>'+
+  '<section class="card" style="margin-top:24px"><h2>Lernsets</h2>'+(state.sets.length?'<div class="set-grid">'+state.sets.map(setCard).join('')+'</div>':'<p class="muted">Noch keine eigenen Lernsets vorhanden.</p>')+'</section>'+
+  '<section class="card" style="margin-top:24px"><h2>Fortschritt sichern</h2><div class="actions"><button id="export">Sicherung herunterladen</button><label class="file-button">Sicherung wiederherstellen<input id="restore" type="file" accept=".json,application/json"></label></div><p id="restore-status"></p></section>';
+}
+
+function exam(){
+  app.innerHTML=head('Prüfungsmodus.','Teste dich ohne direkte Hinweise und werte erst am Ende aus.')+
+  '<section class="card"><span class="tag">PROBELAUF</span><h2 style="margin-top:20px">Ohne Hinweise. Mit ehrlichem Feedback.</h2><p>Wähle optional ein Lernset. Selbstkontroll-Lernkarten aus PDFs werden hier ausgelassen.</p><label>Lernset<select id="exam-set"><option value="">Alle automatisch bewertbaren Fragen</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label><div class="actions"><button data-start="exam">Probeprüfung starten</button></div></section>';
+}
+
+function start(mode,opt={}){
+  let list=questions(),subject=opt.subject||document.querySelector('#subject-select')?.value||'',topic=opt.topic||document.querySelector('#topic-select')?.value||'',setId=opt.setId||document.querySelector('#set-select')?.value||(mode==='exam'?document.querySelector('#exam-set')?.value||'':'');
+  if(subject)list=list.filter(q=>q.subject===subject);
+  if(topic)list=list.filter(q=>q.topic===topic);
+  if(setId)list=list.filter(q=>q.setId===setId);
+  if(mode==='errors')list=list.filter(q=>rec(q).attempts&&rec(q).streak<3);
+  if(mode==='exam')list=shuffle(list.filter(q=>q.type!=='selfcheck'));
+  else list.sort((a,b)=>{const rank=q=>rec(q).attempts&&rec(q).due<=Date.now()?0:!rec(q).attempts?1:2;return rank(a)-rank(b)||rec(a).due-rec(b).due});
+  session={mode,queue:list.slice(0,10),index:0,answered:false,results:[]};render();
+}
+
+function renderQuestion(){
+  const s=session,q=s.queue[s.index];
+  if(!q){summary();return}
+  const self=q.type==='selfcheck';
+  app.innerHTML=head(s.mode==='exam'?'Deine Probeprüfung':s.mode==='errors'?'Du kannst das verstehen.':'Zeit für einen Aha-Moment.',s.mode==='exam'?'Die Auswertung folgt nach der letzten Antwort.':self?'Formuliere erst selbst und decke dann die Lösung auf.':'Denk in Ruhe nach. Es geht ums Verstehen.')+
+  '<section class="card question"><div class="topic-line"><div><span class="tag">'+esc(q.subject||'Allgemein')+'</span> <span class="tag soft">'+esc(q.topic)+'</span></div><small>Aufgabe '+(s.index+1)+' von '+s.queue.length+'</small></div><progress value="'+s.index+'" max="'+s.queue.length+'"></progress><h2>'+esc(q.prompt)+'</h2>'+
+  (self?'<div class="self-check-box"><label>Deine Antwort in eigenen Worten (optional)<textarea id="thoughts" rows="4" placeholder="Schreibe auf, was du weißt."></textarea></label><div class="actions"><button id="reveal">Antwort aufdecken</button><button class="quiet" id="end">Runde beenden</button></div></div>':
+  '<form id="answer-form">'+(q.type==='choice'?'<div class="options">'+q.options.map(o=>'<label class="option"><input type="radio" name="answer" value="'+esc(o)+'" required><span>'+esc(o)+'</span></label>').join('')+'</div>':'<label>Deine Antwort<input name="answer" type="text" required autocomplete="off" placeholder="Antwort eingeben"></label>')+'<div class="actions"><button type="submit">'+(s.mode==='exam'?'Antwort abgeben':'Antwort prüfen')+'</button><button type="button" class="quiet" id="end">Runde beenden</button></div></form>')+
+  '<div id="feedback"></div></section>';
+  if(self)document.querySelector('#reveal').onclick=()=>reveal(q);
+  else document.querySelector('#answer-form').onsubmit=e=>{e.preventDefault();submit(new FormData(e.target).get('answer'))};
+  document.querySelector('#end').onclick=()=>{if(s.mode==='exam'&&s.results.length)summary(true);else{session=null;render()}};
+}
+function norm(v){return String(v??'').trim().toLowerCase().replace(/,/g,'.').replace(/s+/g,' ')}
+function correct(q,v){
+  const n=norm(v);
+  if(q.type==='number')return /^[+-]?(?:d+(?:.d+)?|.d+)$/.test(n)&&Number(n)===Number(norm(q.answer));
+  return [q.answer,...(q.aliases||[])].some(a=>norm(a)===n);
+}
+function update(q,ok){
+  const r={...rec(q)};r.attempts++;r.correct+=Number(ok);r.streak=ok?r.streak+1:0;r.last=Date.now();r.due=r.last+(ok?[1,3,7,14][Math.min(r.streak-1,3)]*DAY:60000);
+  state.records[q.id]=r;state.history.push({id:q.id,at:r.last,correct:ok,subject:q.subject||'Allgemein',setId:q.setId||''});
+}
+function explain(q,ok,answer){
+  return '<div class="feedback '+(ok?'':'wrong')+'"><h3>'+(ok?'Richtig. Gut gemacht!':'Noch nicht ganz – schauen wir es uns an.')+'</h3>'+(answer!==undefined?'<p>Deine Antwort: <strong>'+esc(answer)+'</strong></p>':'')+'<p>Die Lösung: <strong>'+esc(q.answer)+'</strong></p><p>'+esc(q.explanation||'')+'</p>'+(q.steps?.length?'<h3>Schritt für Schritt</h3><ol>'+q.steps.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol>':'')+'</div>';
+}
+function submit(answer){
+  const s=session;if(!s||s.answered||!String(answer??'').trim())return;const q=s.queue[s.index],ok=correct(q,answer);s.answered=true;s.results.push({q,answer,correct:ok});
+  if(s.mode==='exam'){next();return}
+  update(q,ok);save();if(!ok&&s.queue.length<20)s.queue.splice(Math.min(s.index+3,s.queue.length),0,q);
+  document.querySelectorAll('#answer-form input,#answer-form button[type=submit]').forEach(x=>x.disabled=true);
+  document.querySelector('#feedback').innerHTML=explain(q,ok)+'<div class="hint">'+(ok?'Gut – die nächste Wiederholung kommt später.':'Diese Aufgabe kommt in der Runde noch einmal.')+'</div><button id="next">Weiter</button>';
+  document.querySelector('#next').onclick=next;
+}
+function reveal(q){
+  document.querySelector('#reveal').disabled=true;
+  document.querySelector('#feedback').innerHTML='<div class="feedback"><h3>Vergleiche mit deinen Unterlagen</h3><p>'+esc(q.answer)+'</p><p class="small">'+esc(q.explanation||'')+'</p></div><div class="actions"><button id="knew">✓ Gewusst</button><button id="not-knew" class="danger-soft">↻ Noch nicht sicher</button></div>';
+  document.querySelector('#knew').onclick=()=>selfDone(q,true);document.querySelector('#not-knew').onclick=()=>selfDone(q,false);
+}
+function selfDone(q,ok){
+  if(session.answered)return;session.answered=true;session.results.push({q,answer:'Selbstkontrolle',correct:ok});update(q,ok);save();if(!ok&&session.queue.length<20)session.queue.splice(Math.min(session.index+3,session.queue.length),0,q);
+  document.querySelector('#feedback').innerHTML+='<div class="hint">'+(ok?'Gut. Die Karte kommt später wieder.':'Die Karte taucht in dieser Runde erneut auf.')+'</div><button id="next">Weiter</button>';document.querySelector('#next').onclick=next;
+}
+function next(){session.index++;session.answered=false;renderQuestion();window.scrollTo({top:0,behavior:'smooth'})}
+function summary(early=false){
+  const s=session,res=s.results;if(s.mode==='exam'){res.forEach(x=>update(x.q,x.correct));save()}
+  const right=res.filter(x=>x.correct).length,possible=s.queue.reduce((n,q)=>n+(q.points||1),0),earned=res.reduce((n,x)=>n+(x.correct?(x.q.points||1):0),0);
+  app.innerHTML=head(res.length?'Eine Runde weiter.':'Hier ist gerade nichts zu üben.',res.length?'Nimm das Verständnis mit in deinen nächsten Versuch.':'Wähle ein anderes Fach, Thema oder Lernset.')+
+  '<section class="card question empty"><span class="tag">'+(s.mode==='exam'?'PRÜFUNGSAUSWERTUNG':'LERNRUNDE')+'</span><div class="big-number">'+right+' / '+res.length+'</div><h2>Antworten richtig</h2>'+(s.mode==='exam'?'<p>'+earned+' von '+possible+' Punkten'+(early?' · vorzeitig beendet':'')+'</p>':'')+'<button id="finish">Zum Dashboard</button></section>'+
+  (s.mode==='exam'?res.map(x=>'<section class="question" style="margin-top:20px"><h3>'+esc(x.q.prompt)+'</h3>'+explain(x.q,x.correct,x.answer)+'</section>').join(''):'');
+  session=null;document.querySelector('#finish').onclick=()=>{location.hash='dashboard';render()};
+}
+
+function createSet(form){
+  const d=new FormData(form),s={id:id('set'),name:String(d.get('name')).trim(),subject:String(d.get('subject')).trim(),kind:String(d.get('kind')).trim(),date:String(d.get('date')||''),createdAt:Date.now()};
+  if(!s.name||!s.subject)return;state.sets.push(s);save();message='Lernset „'+s.name+'“ wurde angelegt.';render();
+}
+async function importMaterials(form){
+  const d=new FormData(form),set=setById(String(d.get('setId')||'')),files=[...document.querySelector('#material-files').files],notes=[];if(!set||!files.length)return;
+  document.querySelector('#material-status').textContent='Dateien werden eingelesen …';let count=0,cards=0;
+  for(const file of files)try{
+    if(file.size>15000000)throw Error('Datei größer als 15 MB.');
+    let added;
+    if(file.name.toLowerCase().endsWith('.json')){
+      added=validate(JSON.parse(await file.text()),false).map(q=>({...q,subject:q.subject||set.subject,setId:set.id,sourceName:file.name}));
+    }else{
+      const text=file.name.toLowerCase().endsWith('.pdf')?await pdfText(file):await file.text();added=cardsFromText(text,set,file.name);
+      if(!added.length)throw Error('Keine sinnvollen Lernkarten gefunden.');
+    }
+    state.custom.push(...added);state.sources.push({id:id('src'),name:file.name,subject:set.subject,setId:set.id,cards:added.length,addedAt:Date.now()});count++;cards+=added.length;
+  }catch(e){notes.push(file.name+': '+e.message)}
+  save();message=count+' Datei(en) eingelesen · '+cards+' neue Karten/Fragen.'+(notes.length?' Hinweise: '+notes.join(' | '):'');render();
+}
+function cardsFromText(text,set,file){
+  const cleaned=String(text||'').replace(/ /g,' ').replace(/[ 	]+/g,' ').replace(/
+{3,}/g,'
+
+').trim();if(cleaned.length<40)return[];
+  return [...new Set(cleaned.split(/
+{2,}|(?<=[.!?])s+(?=[A-ZÄÖÜ0-9])/).map(x=>x.replace(/s+/g,' ').trim()).filter(x=>x.length>=30&&x.length<=800))].slice(0,40).map((chunk,i)=>{
+    const m=chunk.match(/^(.{2,80}?)(?:s+ists+|s+bedeutets+|s+bezeichnets+|:s+)(.{10,700})$/i),lead=chunk.split(/[,:;–-]/)[0].trim().slice(0,90);
+    return{id:id('card')+'-'+i,subject:set.subject,setId:set.id,sourceName:file,topic:set.name,prompt:m?'Erkläre „'+m[1].trim()+'“ in eigenen Worten.':'Was solltest du zu „'+lead+(lead.length>=90?'…':'')+'“ wissen?',answer:m?m[2].trim():chunk,explanation:'Automatisch aus „'+file+'“ erstellt. Vergleiche deine Erklärung mit dem Originaltext.',steps:[],type:'selfcheck',options:[],aliases:[],points:1};
+  });
+}
+let pdfPromise;
+function pdfLib(){
+  if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);if(pdfPromise)return pdfPromise;
+  pdfPromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';resolve(window.pdfjsLib)};s.onerror=()=>reject(Error('PDF-Modul konnte nicht geladen werden. Beim ersten PDF-Import ist Internet nötig.'));document.head.appendChild(s)});return pdfPromise;
+}
+async function pdfText(file){
+  const lib=await pdfLib(),pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise,out=[];
+  for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i),c=await p.getTextContent();out.push(c.items.map(x=>x.str).join(' '))}return out.join('
+
+');
+}
+function validate(input,allowEmpty=true){
+  if(!Array.isArray(input)||(!allowEmpty&&!input.length)||input.length>2000)throw Error('Erwartet wird eine Liste mit 1 bis 2.000 Aufgaben.');
+  const existing=new Set(questions().map(q=>q.id)),local=new Set();
+  return input.map(q=>{
+    if(!q||typeof q!=='object')throw Error('Jede Aufgabe muss ein Objekt sein.');
+    for(const k of ['id','topic','prompt','answer'])if(typeof q[k]!=='string'||!q[k].trim())throw Error('Fehlendes Feld: '+k);
+    if(!/^[a-zA-Z0-9_-]{1,120}$/.test(q.id)||local.has(q.id)||existing.has(q.id))throw Error('ID „'+q.id+'“ ist ungültig oder vorhanden.');local.add(q.id);
+    const type=q.type||'choice',options=Array.isArray(q.options)?q.options:[];if(!['choice','number','text','selfcheck'].includes(type))throw Error('Unbekannter Fragetyp.');
+    if(type==='choice'&&(options.length<2||!options.includes(q.answer)))throw Error('Multiple Choice braucht mindestens zwei Optionen inklusive Lösung.');
+    return{id:q.id,subject:String(q.subject||'Eigene Unterlagen'),setId:String(q.setId||''),sourceName:String(q.sourceName||'JSON-Import'),topic:q.topic.trim(),prompt:q.prompt.trim(),answer:q.answer.trim(),explanation:String(q.explanation||''),steps:Array.isArray(q.steps)?q.steps.map(String):[],type,options:options.map(String),aliases:Array.isArray(q.aliases)?q.aliases.map(String):[],points:Number.isInteger(q.points)&&q.points>0?q.points:1};
+  });
+}
+async function importJson(e){
+  const target=document.querySelector('#import-status');try{const f=e.target.files[0];if(!f)return;const added=validate(JSON.parse(await f.text()),false);state.custom.push(...added);state.sources.push({id:id('src'),name:f.name,subject:'Eigene Unterlagen',setId:'',cards:added.length,addedAt:Date.now()});save();message=added.length+' Fragen importiert.';render()}catch(err){if(target)target.textContent='Import nicht möglich: '+err.message}
+}
+function deleteSet(sid){
+  const s=setById(sid);if(!s||!confirm('Lernset „'+s.name+'“ samt importierten Fragen und Dateien löschen?'))return;
+  const ids=new Set(state.custom.filter(q=>q.setId===sid).map(q=>q.id));state.custom=state.custom.filter(q=>q.setId!==sid);state.sources=state.sources.filter(x=>x.setId!==sid);state.sets=state.sets.filter(x=>x.id!==sid);ids.forEach(x=>delete state.records[x]);state.history=state.history.filter(x=>!ids.has(x.id));save();render();
+}
+
+function startGame(type){
+  if(type==='memory'){
+    const list=shuffle(questions().filter(q=>q.type!=='selfcheck'&&String(q.answer).length<=80)).slice(0,6);if(list.length<3)return alert('Mindestens drei kurze Fragen werden benötigt.');
+    game={type,pairs:list.length,matched:new Set(),open:[],cards:shuffle(list.flatMap(q=>[{id:q.id+'-q',pair:q.id,text:q.prompt,kind:'Frage'},{id:q.id+'-a',pair:q.id,text:q.answer,kind:'Antwort'}]))};
+  }else if(type==='wrong'){
+    const list=shuffle(questions().filter(q=>q.type!=='selfcheck')).slice(0,8);if(list.length<4)return alert('Mindestens vier Fragen werden benötigt.');game={type,score:0,round:0,max:5,pool:list};prepareWrong();
+  }else{
+    const list=shuffle(questions().filter(q=>q.type==='choice')).slice(0,3);if(list.length<3)return alert('Mindestens drei Multiple-Choice-Fragen werden benötigt.');game={type:'detective',index:0,score:0,questions:list,missed:false};
+  }render();
+}
+function renderGame(){if(game.type==='memory')memory();else if(game.type==='wrong')wrong();else detective()}
+function reward(type,xp){state.games.push({type,xp,at:Date.now()});save()}
+function memory(){
+  const done=game.matched.size===game.pairs;
+  app.innerHTML=head('Memory: Frage & Antwort',done?'Alle Paare gefunden!':'Finde die passende Lösung zu jeder Frage.',game.matched.size+'/'+game.pairs+' Paare')+
+  '<section class="card"><div class="memory-grid">'+game.cards.map(c=>{const open=game.open.includes(c.id)||game.matched.has(c.pair);return '<button class="memory-card '+(open?'open ':'')+(game.matched.has(c.pair)?'matched':'')+'" data-memory="'+esc(c.id)+'" '+(game.matched.has(c.pair)?'disabled':'')+'><span>'+(open?'<small>'+esc(c.kind)+'</small>'+esc(c.text):'?')+'</span></button>'}).join('')+'</div>'+(done?'<div class="game-win"><strong>+60 XP</strong><p>Memory abgeschlossen.</p><button id="game-finish">Zurück zu den Lernspielen</button></div>':'</section>');
+  if(done){if(!game.rewarded){reward('memory',60);game.rewarded=true}document.querySelector('#game-finish').onclick=finishGame}
+  else document.querySelectorAll('[data-memory]').forEach(b=>b.onclick=()=>flip(b.dataset.memory));
+}
+function flip(cid){
+  if(!game||game.open.length>=2||game.open.includes(cid))return;game.open.push(cid);memory();
+  if(game.open.length===2){const current=game,set=[...current.open].map(x=>current.cards.find(c=>c.id===x));setTimeout(()=>{if(game!==current)return;if(set[0].pair===set[1].pair)current.matched.add(set[0].pair);current.open=[];memory()},650)}
+}
+function prepareWrong(){
+  const chosen=shuffle(game.pool).slice(0,4),wi=Math.floor(Math.random()*chosen.length);
+  game.current=chosen.map((q,i)=>({q,text:q.prompt+' — '+(i===wi?chosen[(i+1)%chosen.length].answer:q.answer),wrong:i===wi}));game.answered=false;
+}
+function wrong(){
+  if(game.round>=game.max){const xp=20+game.score*10;if(!game.rewarded){reward('wrong',xp);game.rewarded=true}app.innerHTML=head('Fehlerjagd beendet.','Du hast '+game.score+' von '+game.max+' Fehlern gefunden.','+'+xp+' XP')+'<section class="card game-win"><div class="big-number">'+game.score+'/'+game.max+'</div><button id="game-finish">Zurück zu den Lernspielen</button></section>';document.querySelector('#game-finish').onclick=finishGame;return}
+  app.innerHTML=head('Was ist falsch?','Eine Zuordnung passt nicht. Klicke auf die falsche Aussage.','Runde '+(game.round+1)+'/'+game.max)+'<section class="card"><div class="wrong-grid">'+game.current.map((x,i)=>'<button data-wrong="'+i+'" class="statement-card">'+esc(x.text)+'</button>').join('')+'</div><div id="game-feedback"></div></section>';
+  document.querySelectorAll('[data-wrong]').forEach(b=>b.onclick=()=>answerWrong(Number(b.dataset.wrong)));
+}
+function answerWrong(i){
+  if(game.answered)return;game.answered=true;const ok=game.current[i]?.wrong,real=game.current.find(x=>x.wrong);if(ok)game.score++;
+  document.querySelector('#game-feedback').innerHTML='<div class="feedback '+(ok?'':'wrong')+'"><h3>'+(ok?'Genau!':'Noch nicht.')+'</h3><p>Falsch war: <strong>'+esc(real.text)+'</strong></p><p>Richtig ist: <strong>'+esc(real.q.answer)+'</strong>.</p></div><button id="game-next">Nächste Runde</button>';
+  document.querySelector('#game-next').onclick=()=>{game.round++;prepareWrong();wrong()};
+}
+function detective(){
+  if(game.index>=game.questions.length){const xp=40+game.score*10;if(!game.rewarded){reward('detective',xp);game.rewarded=true}app.innerHTML=head('Fall gelöst.','Du hast alle Hinweise gesammelt.','+'+xp+' XP')+'<section class="card game-win"><div class="big-number">'+game.score+'/3</div><p>Richtige Antworten beim ersten Versuch.</p><button id="game-finish">Zurück zu den Lernspielen</button></section>';document.querySelector('#game-finish').onclick=finishGame;return}
+  const q=game.questions[game.index];
+  app.innerHTML=head('Wissensdetektiv','Sammle Hinweis '+(game.index+1)+' von 3. Nach einem Fehler bekommst du eine Erklärung und darfst erneut versuchen.','Hinweis '+(game.index+1))+'<section class="card detective-card"><div class="case-file">AKTE '+String(game.index+1).padStart(2,'0')+'</div><h2>'+esc(q.prompt)+'</h2><div class="options">'+q.options.map(o=>'<button class="option-button" data-detective="'+esc(o)+'">'+esc(o)+'</button>').join('')+'</div><div id="game-feedback"></div></section>';
+  document.querySelectorAll('[data-detective]').forEach(b=>b.onclick=()=>answerDetective(q,b.dataset.detective));
+}
+function answerDetective(q,a){
+  const ok=norm(a)===norm(q.answer);
+  if(ok){if(!game.missed)game.score++;document.querySelector('#game-feedback').innerHTML='<div class="feedback"><h3>Hinweis gefunden.</h3><p>'+esc(q.explanation)+'</p></div><button id="detective-next">Nächsten Hinweis untersuchen</button>';document.querySelectorAll('[data-detective]').forEach(b=>b.disabled=true);document.querySelector('#detective-next').onclick=()=>{game.index++;game.missed=false;detective()}}
+  else{game.missed=true;document.querySelector('#game-feedback').innerHTML='<div class="feedback wrong"><h3>Diese Spur führt noch nicht zum Ziel.</h3><p>'+esc(q.explanation)+'</p><p>Versuche es noch einmal.</p></div>'}
+}
+function finishGame(){game=null;location.hash='games';render()}
+
+function bind(){
+  document.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>start(b.dataset.start));
+  document.querySelectorAll('[data-topic]').forEach(b=>b.onclick=()=>start('learn',{topic:b.dataset.topic}));
+  document.querySelectorAll('[data-set-learn]').forEach(b=>b.onclick=()=>start('learn',{setId:b.dataset.setLearn}));
+  document.querySelectorAll('[data-set-delete]').forEach(b=>b.onclick=()=>deleteSet(b.dataset.setDelete));
+  document.querySelectorAll('[data-game]').forEach(b=>b.onclick=()=>startGame(b.dataset.game));
+  document.querySelector('#set-form')?.addEventListener('submit',e=>{e.preventDefault();createSet(e.currentTarget)});
+  document.querySelector('#material-form')?.addEventListener('submit',e=>{e.preventDefault();importMaterials(e.currentTarget)});
+  document.querySelector('#import')?.addEventListener('change',importJson);
+  document.querySelector('#export')?.addEventListener('click',()=>download('learning-by-doing-sicherung.json',state));
+  document.querySelector('#restore')?.addEventListener('change',restore);
+}
+function download(name,value){const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),500)}
+async function restore(e){
+  const t=document.querySelector('#restore-status');try{const f=e.target.files[0];if(!f)return;const v=JSON.parse(await f.text());if(![1,2].includes(v.version))throw Error('Unbekannte Sicherungsversion.');if(!confirm('Aktuelle Lerndaten durch diese Sicherung ersetzen?'))return;state=v.version===2?{...blank(),...v}:{...blank(),...v,version:2,sets:[],sources:[],games:[]};save();render()}catch(err){if(t)t.textContent='Wiederherstellung nicht möglich: '+err.message}
+}
+
+window.addEventListener('hashchange',()=>{session=null;game=null;render()});
+document.querySelector('#theme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';save();render()};
+render();
