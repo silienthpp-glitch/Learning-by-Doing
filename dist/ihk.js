@@ -27,7 +27,9 @@ window.renderIhk = async function () {
       list.innerHTML = '<p class="small">'+selected.length+' Dokumente · Aufgaben und Lösungen getrennt öffnen</p>';
       const pairs = new Map();
       for (const entry of selected) {
-        const key = entry.group + ' · ' + (entry.term || entry.name.replace(/Lösungen?/i,''));
+        const primary = ['IT-Systeme', 'Netzwerke', 'WiSo'].includes(entry.group);
+        const stem = entry.name.replace(/\.pdf$/i, '').replace(/(?:_Lsg|_L|_Lösungen| Lösungen| Aufgaben)$/i, '').replace(/-1$/, '').trim();
+        const key = entry.group + ' · ' + (primary && entry.term ? entry.term : stem);
         if (!pairs.has(key)) pairs.set(key, []);
         pairs.get(key).push(entry);
       }
