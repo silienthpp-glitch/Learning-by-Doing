@@ -92,7 +92,7 @@ Das Dashboard zeigt zusätzlich einen wechselnden Motivationsspruch. Die Karte r
 
 Die Sammlung enthält mehrere Kategorien:
 
-- Jesus / Bibel
+- Jesus und weitere biblische Personen wie David, Paulus, Josua, Salomo, Mose, Jesaja, Josef, Esther, Daniel, Petrus, Nehemia, Maria, Hiob und Ruth
 - klassische Philosophie
 - Sport
 - Unternehmertum
