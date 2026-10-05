@@ -221,6 +221,7 @@ function render(){
   if(route==='dashboard') dashboard();
   else if(route==='learn'||route==='errors') learn(route);
   else if(route==='library') library();
+  else if(route==='ihk') window.renderIhk();
   else if(route==='games') gamesHome();
   else if(route==='topics') topicsView();
   else if(route==='progress') progress();

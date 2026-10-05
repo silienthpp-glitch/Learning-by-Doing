@@ -180,3 +180,17 @@ Für besonders gute Lernsets gibt es zwei Wege:
 2. PDFs in ChatGPT bereitstellen und daraus passende Fragen, Erklärungen und Rechenwege erstellen lassen; anschließend kann die erzeugte JSON-Datei importiert werden.
 
 Das ist besonders sinnvoll für alte IHK-Prüfungen, weil Aufgaben, Musterlösungen, Rechenwege und Punkte sauber geprüft werden sollten.
+# Lokale IHK-AP2-Prüfungsbibliothek
+
+Eigene Prüfungsunterlagen mit `python3 import_ihk.py /pfad/zur/datei.zip`
+importieren. Danach `python3 start.py --open-browser` starten und
+„IHK AP2 · Unterlagen“ öffnen. Aufgaben und Lösungen sind nach Bereich und
+Termin sortiert. Alte Ausbildungsordnung und Übungsmaterial bleiben getrennt.
+Der Import ergänzt Dokumente anhand ihrer SHA-256-Prüfsumme und überschreibt
+keine vorhandenen Lernsets oder Fortschritte. Identische PDFs werden einmal gespeichert.
+
+Original-PDFs und der Katalog liegen nur in `dist/private-ihk/`, das von Git
+ignoriert wird. Diesen Ordner weder veröffentlichen noch in eine öffentliche
+Hosting-Ausgabe übernehmen. Das lokale Startprogramm bindet nur an 127.0.0.1.
+Die Bibliothek erzeugt keine automatischen Prüfungsfragen oder Bewertungen aus Scans.
+

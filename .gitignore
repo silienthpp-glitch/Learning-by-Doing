@@ -9,3 +9,7 @@ learning-by-doing-sicherung*.json
 .env
 .env.*
 !.env.example
+
+# Geschützte Prüfungen bleiben lokal, einschließlich Katalog und ZIPs.
+dist/private-ihk/
+*.zip
