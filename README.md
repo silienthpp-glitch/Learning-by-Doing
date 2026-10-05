@@ -1,123 +1,164 @@
 # Learning by Doing
 
-Dein lokaler IHK-Lerntrainer für Fachinformatiker Systemintegration. Die App startet mit **19 selbst erstellten Beispielaufgaben aus acht Themen**. Es sind keine offiziellen IHK-Aufgaben. Du brauchst kein Konto, keinen API-Schlüssel und keine zusätzlichen Python- oder JavaScript-Pakete. Nach dem Start arbeitet die App ohne Internet.
+**Learning by Doing** ist ein lokaler Lerntrainer für IHK-Prüfungen, Klausuren und Tests. Die App läuft im Browser und speichert Lernfortschritt, Lernsets und importierte Fragen standardmäßig nur lokal auf deinem Rechner.
 
-## Start in drei Schritten
+Die eingebaute Beispielsammlung enthält selbst erstellte Aufgaben zur FiSi-/IHK-Vorbereitung. Es sind **keine offiziellen IHK-Prüfungsaufgaben**.
 
-1. Falls du die ZIP-Datei verwendest: zuerst vollständig entpacken.
-2. Öffne ein Terminal im Ordner `learning-by-doing`.
-3. Starte den lokalen Server:
+## Mehrere Fächer, Klausuren und Tests
 
-```sh
-python3 start.py
-```
+Du kannst jetzt parallel für unterschiedliche Fächer lernen. Beispiele:
 
-Unter Windows heißt der Befehl oft `py start.py`. Voraussetzung ist Python 3. Auf diesem Mac ist es bereits vorhanden.
+- Netzwerktechnik → Klausur 2
+- Wirtschaft → Test Freitag
+- Datenbanken → SQL-Klausur
+- IHK AP2 → Winterprüfung
 
-Öffne dann im Browser **http://127.0.0.1:8765**. Lass das Terminal während des Lernens offen. Zum Beenden drückst du dort **Strg+C**. Beim nächsten Start ist dein Fortschritt im selben Browser wieder da.
+Dafür gibt es **Lernsets**. Ein Lernset hat einen Namen, ein Fach, eine Art (Klausur, Test, IHK oder Sonstiges), optional einen Termin, eigene Dateien/Fragen und einen eigenen Lernfortschritt.
 
-Auf dem Mac kannst du alternativ `Start.command` öffnen. Das startet die Seite und öffnet deinen Browser automatisch. Falls macOS beim ersten Start nachfragt, bestätige das Öffnen der Datei. Falls macOS die Ausführung weiterhin blockiert, nutze den Terminal-Befehl oben.
+## Dateien hinzufügen
 
-Wenn der Port belegt ist:
+Unter **Fächer & Lernsets** kannst du mehrere Dateien einem Lernset zuordnen:
 
-```sh
-python3 start.py --port 8766
-```
+- PDF
+- TXT
+- Markdown (.md)
+- JSON mit strukturierten Fragen
 
-Dann lautet die Adresse http://127.0.0.1:8766. Achtung: eine andere Portnummer ist für den Browser ein anderer Speicherort. Sichere deinen Fortschritt vor einem Wechsel.
+### PDF, TXT und Markdown
 
-Die Adresse `127.0.0.1` bedeutet „dieser Rechner“. Der Server lauscht nur dort; andere Rechner in deinem Netzwerk erhalten dadurch keinen Zugriff. Du kannst `dist/index.html` auch direkt öffnen, aber für zuverlässige Speicherung empfehlen wir die feste lokale Webadresse.
+Aus Textunterlagen erstellt die App automatisch Lernkarten. Du beantwortest eine Frage zunächst selbst, deckst danach den Originalinhalt auf und wählst **Gewusst** oder **Noch nicht sicher**.
 
-## So benutzt du die App
+Eine rein lokale Webseite ohne KI kann nicht zuverlässig entscheiden, ob zwei frei formulierte Antworten inhaltlich gleichbedeutend sind. Deshalb vermeidet die App bei solchen Karten absichtlich eine scheinbar genaue automatische Bewertung.
 
-- **Dashboard:** Fragen von heute, offene Wiederholungen, sicher gelernte Aufgaben und Themenfortschritt. Alle Werte starten bei null; es gibt keine erfundenen Ergebnisse.
-- **Lernen:** Wähle alle Themen oder ein einzelnes Thema. Fällige Aufgaben stehen vor neuen Aufgaben. Jede Antwort zeigt dir direkt die Lösung, eine einfache Erklärung und bei Rechnungen einzelne Schritte.
-- **Fehlertraining:** Wiederhole bereits bearbeitete Aufgaben, die noch keine drei richtigen Antworten in Folge haben. Du darfst auch vor ihrer Fälligkeit üben.
-- **Themen:** Netzwerktechnik, Subnetting, IPv6, RAID & Speicher, SQL, IT-Sicherheit, Wirtschaft und Projektmanagement. Hier importierst du eigene Aufgaben.
-- **Fortschritt:** Thema für Thema sehen, wie viele Aufgaben sicher sitzen. Über „Sicherung herunterladen“ speicherst du Fortschritt und eigene Aufgaben gemeinsam. „Sicherung wiederherstellen“ ersetzt die aktuellen Daten nach einer Bestätigung.
-- **Prüfungsmodus:** Zehn zufällige Aufgaben ohne sofortige Hinweise. Am Ende erhältst du Punkte, Lösungen und Erklärungen. Bei vorzeitiger Abgabe zählen offene Aufgaben mit null Punkten. Ein Wechsel über die Navigation bricht den Test ab; noch nicht abgegebene Prüfungsantworten werden dann nicht gespeichert.
-- **Darstellung wechseln:** Heller oder dunkler Hintergrund, auch auf kleinen Bildschirmen.
+Für PDFs wird PDF.js beim ersten PDF-Import aus einem CDN geladen. Dafür ist beim ersten PDF-Import eine Internetverbindung nötig. Die ausgewählte PDF-Datei wird dabei nicht zu einem Server hochgeladen, sondern im Browser gelesen. TXT, Markdown, JSON und das normale Lernen funktionieren weiterhin lokal.
 
-## Warum kommen Fragen wieder?
+### JSON-Fragen
 
-Bei einer falschen Antwort wird die Serie richtiger Antworten auf null gesetzt. Die Aufgabe wird nach einer Minute fällig und erscheint in der laufenden Lernrunde nach mindestens zwei anderen Aufgaben erneut, sofern genug Aufgaben vorhanden sind. Bei kurzen Runden erscheint sie entsprechend früher. Lies zuerst die Erklärung und versuche den Rechenweg anschließend selbst.
-
-Bei richtigen Antworten wird die nächste Wiederholung nach 1, 3, 7 und danach 14 Tagen geplant. Nach drei richtigen Antworten in Folge gilt eine Aufgabe als „sicher gelernt“. Auch sichere Aufgaben kommen nach Ablauf der Frist wieder dran. Ein späterer Fehler setzt diesen Status zurück.
-
-Eine Lernrunde startet mit bis zu zehn Aufgaben. Durch Wiederholungen kann sie auf maximal zwanzig Antworten wachsen. Danach übst du die offenen Aufgaben in einer neuen Runde weiter. Die App kann nicht beweisen, dass du ein Thema vollständig verstanden hast; der Status ist eine Lernhilfe, keine Prognose für die IHK-Prüfung.
-
-## Aufbau einfach erklärt
-
-```text
-learning-by-doing/
-├── README.md                 diese Anleitung
-├── start.py                  kleiner lokaler Webserver
-├── Start.command             Starthelfer für macOS
-├── beispiel-import.json      Vorlage für eigene Aufgaben
-└── dist/
-    ├── index.html            Grundgerüst: Navigation und Inhaltsbereich
-    ├── style.css             Farben, Abstände und mobile Darstellung
-    ├── questions.js          die eingebauten Beispielaufgaben
-    └── app.js                Antworten prüfen, Runden, Fortschritt und Import
-```
-
-**HTML** beschreibt die Bestandteile der Seite. **CSS** bestimmt ihr Aussehen. **JavaScript** reagiert auf Klicks, prüft Antworten und speichert den Fortschritt. **Python** liefert diese Dateien lokal an deinen Browser aus; es verarbeitet keine Antworten und speichert keine Lerndaten.
-
-`dist` enthält hier direkt die fertige Webseite, keine generierten Zwischenstände. Es ist kein Build-Schritt nötig. Du kannst den Projektordner später als Git-Repository verwalten.
-
-Die sechs Ansichten verwenden Adressen wie `#learn` und `#topics`. Dadurch bleibt alles in einer Seite und der lokale Server benötigt keine besondere Routen-Konfiguration.
-
-### Die wichtigsten Stellen in app.js
-
-- `render()` zeichnet die aktuelle Ansicht.
-- `start()` stellt eine Runde zusammen.
-- `isCorrect()` prüft eine Antwort.
-- `submit()` verarbeitet die Abgabe und zeigt die Erklärung.
-- `updateRecord()` aktualisiert die Wiederholungsfrist.
-- `validateQuestions()` prüft importierte Aufgaben vor dem Speichern.
-- `save()` speichert unter dem Browser-Schlüssel `learning-by-doing-v1`.
-
-## Echte Prüfungsfragen später ergänzen
-
-Nutze `beispiel-import.json` als Vorlage. Im Bereich „Themen“ kannst du eine JSON-Datei importieren. Der Inhalt ist eine Liste von Aufgaben:
+Strukturierte Fragen können automatisch ausgewertet werden. Beispiel:
 
 ```json
 [
   {
-    "id": "eigene-subnetting-001",
-    "topic": "Subnetting",
-    "prompt": "Wie viele nutzbare Hosts hat ein normales IPv4-/28-Netz?",
-    "type": "number",
-    "answer": "14",
-    "explanation": "Vier Host-Bits ergeben 16 Adressen. Netz- und Broadcastadresse sind reserviert.",
-    "steps": ["32 − 28 = 4", "2⁴ = 16", "16 − 2 = 14"],
-    "options": [],
+    "id": "sql-select-001",
+    "subject": "Datenbanken",
+    "topic": "SQL",
+    "prompt": "Welche SQL-Anweisung liest Daten aus einer Tabelle?",
+    "type": "choice",
+    "answer": "SELECT",
+    "explanation": "SELECT liest Daten aus Tabellen.",
+    "steps": [],
+    "options": ["SELECT", "DELETE", "UPDATE", "INSERT"],
     "aliases": [],
     "points": 2
   }
 ]
 ```
 
-Für Multiple Choice verwendest du `"type": "choice"` und zum Beispiel `"options": ["Switch", "Router", "Patchpanel"]`. `answer` muss exakt einer Option entsprechen.
+Unterstützte Typen:
 
-- Jede `id` muss eindeutig sein. Verwende nur Buchstaben, Zahlen, Bindestriche und Unterstriche. Ändere bestehende IDs nicht, sonst geht die Zuordnung zum Fortschritt verloren.
-- `answer` ist immer ein Text. Bei Zahlenaufgaben enthält er nur die Zahl. Die Einheit gehört in die Frage. Dezimalkomma und Dezimalpunkt werden bei Antworten akzeptiert. Es werden keine Näherungen oder Einheiten geraten.
-- `steps` ist eine Liste; ohne Rechenweg verwendest du `[]`.
-- `points` ist eine ganze Zahl von 1 bis 100. In der Prüfung erhält eine richtige Antwort alle Punkte, sonst null. Teilpunkte sind noch nicht vorgesehen.
-- `aliases` enthält optional alternative akzeptierte Antworten für Auswahlaufgaben; normalerweise genügt `[]`.
-- Ein Import enthält maximal 1.000 Aufgaben und die Datei darf höchstens 5 MB groß sein. Bereits importierte IDs werden abgelehnt; es findet kein stilles Überschreiben statt.
-- Texte werden als Text ausgegeben, nicht als HTML ausgeführt.
+- `choice` – Multiple Choice
+- `number` – eindeutige Zahl
+- `text` – exakte Textantwort oder Alias
+- `selfcheck` – Selbstkontroll-Lernkarte
 
-Alternativ kannst du weitere Aufgaben direkt in `questions.js` zur Liste hinzufügen. Nach dem Speichern lade die Seite neu. Für normale Ergänzungen ist der JSON-Import einfacher.
+## Lernlogik
 
-**PDFs werden noch nicht automatisch eingelesen.** Deine späteren IHK-Fragen müssen mit passenden Lösungen und verständlichen Erklärungen in das Schema übertragen werden. Der Trainer bewertet derzeit Auswahl- und Zahlenaufgaben; offene Texte, mehrteilige Originalaufgaben, Bilder, Teilpunkte, Prüfungsjahrgänge und Zeitlimits benötigen eine spätere Erweiterung. Die vorhandene Probeprüfung dient bereits zum Üben am Stück.
+Die App arbeitet mit Wiederholungen:
 
-## Speicherung und Sicherung
+- falsch / „noch nicht sicher“ → Aufgabe erscheint bald erneut,
+- richtig → Wiederholung nach 1, 3, 7 und später 14 Tagen,
+- drei richtige Antworten in Folge → Aufgabe gilt als **sicher gelernt**.
 
-Alles liegt in `localStorage` dieses Browsers für genau diese Webadresse. Es wird nichts an externe Dienste geschickt. Ein anderer Browser, ein privates Fenster, eine andere Portnummer oder gelöschte Browserdaten können einen leeren Fortschritt zeigen. Private Fenster speichern häufig nur vorübergehend.
+Der Status ist eine Lernhilfe und keine Vorhersage einer echten Prüfungsnote.
 
-Lade regelmäßig eine Sicherung herunter. Sie enthält die Aufgaben-IDs, Versuche, richtigen Antworten, aktuelle Antwortserie, nächste Frist, Lernverlauf, eigene Aufgaben und Darstellung. Laufende Runden werden nicht gesichert. Normale Lernantworten werden sofort gespeichert; Prüfungsantworten erst beim Abschluss oder bei vorzeitiger Abgabe. Wenn Browser-Speicherung blockiert ist, erscheint ein Hinweis und du kannst die aktuellen Daten trotzdem exportieren.
+## Level und Statistik
 
-## Überprüfung dieser Version
+Das Dashboard zeigt:
 
-Geprüft wurden Zahlen mit Dezimalkomma, falsche und richtige Auswahlantworten, Wiederholungsreihenfolge, Rücksetzen der Antwortserie, Schutz gegen doppelte Abgabe, Prüfungsbewertung, Importvalidierung und alle sechs Ansichten. Zusätzlich wurden Erklärung und Speicherung im Browser kontrolliert. Es gibt keine externen Schriften, Bilder oder Bibliotheken, die für die Seite geladen werden müssen.
+- beantwortete Aufgaben heute,
+- offene Wiederholungen,
+- Level und XP,
+- Lernserie in Tagen,
+- Fortschritt je Fach,
+- Fortschritt je Lernset,
+- sicher gelernte Aufgaben,
+- absolvierte Lernspiele.
+
+XP erhältst du durch Lernen, gemeisterte Aufgaben und Lernspiele. Ein Level benötigt aktuell 250 XP.
+
+## Lernspiele
+
+### Memory – Frage & Antwort
+Finde die passenden Frage-/Antwort-Paare.
+
+### Wissensdetektiv
+Löse drei Multiple-Choice-Fälle. Bei einem Fehler bekommst du eine Erklärung und darfst erneut versuchen.
+
+### Was ist falsch?
+Vier Frage-/Antwort-Zuordnungen werden gezeigt. Eine Antwort gehört absichtlich zur falschen Frage.
+
+Die Spiele ergänzen normales Lernen und Prüfungssimulationen, ersetzen sie aber nicht.
+
+## Start
+
+1. Repository herunterladen oder klonen.
+2. Terminal im Projektordner öffnen.
+3. Server starten:
+
+```sh
+python3 start.py
+```
+
+Unter Windows oft:
+
+```powershell
+py start.py
+```
+
+Danach öffnen:
+
+```text
+http://127.0.0.1:8765
+```
+
+Auf macOS kannst du alternativ `Start.command` öffnen.
+
+## Projektaufbau
+
+```text
+Learning-by-Doing/
+├── README.md
+├── start.py
+├── Start.command
+├── beispiel-import.json
+└── dist/
+    ├── index.html
+    ├── style.css
+    ├── questions.js
+    └── app.js
+```
+
+- **index.html**: Grundgerüst und Navigation.
+- **style.css**: Aussehen und mobile Darstellung.
+- **questions.js**: eingebaute Beispielaufgaben.
+- **app.js**: Lernlogik, Lernsets, Datei-Import, Fortschritt, Spiele und Speicherung.
+- **start.py**: lokaler Webserver.
+
+## Datenschutz und Sicherung
+
+Lerndaten werden mit `localStorage` im Browser gespeichert. Dazu gehören Lernfortschritt, Wiederholungsstände, eigene Fragen, Lernsets, Datei-Metadaten sowie Level-/Spielhistorie.
+
+Der Text einer importierten PDF/TXT-Datei wird in den daraus erzeugten Lernkarten gespeichert. Das Originaldokument selbst wird nicht als Datei im Browser-Speicher abgelegt.
+
+Unter **Fortschritt** kannst du eine JSON-Sicherung herunterladen und später wiederherstellen.
+
+## Grenzen der aktuellen Version
+
+Die Seite kann PDF-Inhalt lokal lesen und einfache Lernkarten daraus erzeugen, besitzt aber lokal kein Sprachmodell. Deshalb kann sie aus beliebigen Unterlagen noch keine hochwertigen komplexen Klausurfragen inklusive semantischer Freitextbewertung erzeugen.
+
+Für besonders gute Lernsets gibt es zwei Wege:
+
+1. strukturierte Fragen samt Lösungen als JSON importieren,
+2. PDFs in ChatGPT bereitstellen und daraus passende Fragen, Erklärungen und Rechenwege erstellen lassen; anschließend kann die erzeugte JSON-Datei importiert werden.
+
+Das ist besonders sinnvoll für alte IHK-Prüfungen, weil Aufgaben, Musterlösungen, Rechenwege und Punkte sauber geprüft werden sollten.
