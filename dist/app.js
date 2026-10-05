@@ -42,6 +42,53 @@ const MOTIVATION_QUOTES = [
   {category:'Bibel',icon:'📖',text:'Gib nicht auf, Gutes zu tun – Ausdauer trägt mit der Zeit Früchte.',source:'Sinngemäß nach Galater 6,9 · Hoffnung für alle (HFA)'},
   {category:'Bibel',icon:'📖',text:'Prüfe Dinge sorgfältig und behalte das Gute.',source:'Sinngemäß nach 1. Thessalonicher 5,21 · Hoffnung für alle (HFA)'},
 
+  {category:'David',icon:'🎵',text:'Auch wenn der Weg dunkel wird, musst du nicht allein durch die Angst gehen.',source:'Sinngemäß nach Psalm 23,4 · David · Hoffnung für alle (HFA)'},
+  {category:'David',icon:'🎵',text:'Vertraue Gott deinen Weg an und halte daran fest, auch wenn du das Ergebnis noch nicht siehst.',source:'Sinngemäß nach Psalm 37,5 · David · Hoffnung für alle (HFA)'},
+  {category:'David',icon:'🎵',text:'Wenn Angst kommt, kannst du dich entscheiden, dein Vertrauen größer werden zu lassen.',source:'Sinngemäß nach Psalm 56,4 · David · Hoffnung für alle (HFA)'},
+  {category:'David',icon:'🎵',text:'Mut heißt nicht, dass der Gegner klein ist. Mut heißt, zu wissen, wem du vertraust.',source:'Sinngemäß nach 1. Samuel 17,45–47 · David · Hoffnung für alle (HFA)'},
+  {category:'David',icon:'🎵',text:'Warte nicht nur passiv: Sei mutig, fasse neuen Mut und halte durch.',source:'Sinngemäß nach Psalm 27,14 · David · Hoffnung für alle (HFA)'},
+
+  {category:'Paulus',icon:'✉️',text:'Auch mit wenig Kraft kannst du weitergehen, wenn du deine Stärke nicht nur aus dir selbst erwartest.',source:'Sinngemäß nach Philipper 4,13 · Paulus · Hoffnung für alle (HFA)'},
+  {category:'Paulus',icon:'✉️',text:'Lass dich von dem, was hinter dir liegt, nicht festhalten. Richte deinen Blick auf das Ziel vor dir.',source:'Sinngemäß nach Philipper 3,13–14 · Paulus · Hoffnung für alle (HFA)'},
+  {category:'Paulus',icon:'✉️',text:'Schwierige Umstände müssen nicht das letzte Wort haben. Gott kann selbst daraus Gutes entstehen lassen.',source:'Sinngemäß nach Römer 8,28 · Paulus · Hoffnung für alle (HFA)'},
+  {category:'Paulus',icon:'✉️',text:'Wenn Gott für dich ist, musst du Herausforderungen nicht so behandeln, als wärst du ihnen allein ausgeliefert.',source:'Sinngemäß nach Römer 8,31 · Paulus · Hoffnung für alle (HFA)'},
+  {category:'Paulus',icon:'✉️',text:'Schwäche muss dich nicht disqualifizieren. Gerade dort kann neue Kraft sichtbar werden.',source:'Sinngemäß nach 2. Korinther 12,9 · Paulus · Hoffnung für alle (HFA)'},
+
+  {category:'Josua',icon:'🛡️',text:'Sei stark und mutig. Lass dich von Angst nicht davon abhalten, deinen Auftrag anzupacken.',source:'Sinngemäß nach Josua 1,9 · Josua · Hoffnung für alle (HFA)'},
+  {category:'Josua',icon:'🛡️',text:'Bleib konsequent bei dem, was du als richtig erkannt hast, auch wenn der Weg anspruchsvoll wird.',source:'Sinngemäß nach Josua 1,7 · Josua · Hoffnung für alle (HFA)'},
+
+  {category:'Salomo',icon:'👑',text:'Verlass dich nicht nur auf das, was du selbst überblickst. Suche Weisheit und Führung.',source:'Sinngemäß nach Sprüche 3,5–6 · Salomo · Hoffnung für alle (HFA)'},
+  {category:'Salomo',icon:'👑',text:'Weisheit ist kein Luxus. Sie ist eine Grundlage für gute Entscheidungen.',source:'Sinngemäß nach Sprüche 4,7 · Salomo · Hoffnung für alle (HFA)'},
+  {category:'Salomo',icon:'👑',text:'Lege deine Vorhaben bewusst in Gottes Hände und arbeite dann verantwortungsvoll daran.',source:'Sinngemäß nach Sprüche 16,3 · Salomo · Hoffnung für alle (HFA)'},
+
+  {category:'Mose',icon:'🌊',text:'Auch wenn vor dir scheinbar kein Weg ist, muss Panik nicht deine Entscheidung bestimmen.',source:'Sinngemäß nach 2. Mose 14,13–14 · Mose · Hoffnung für alle (HFA)'},
+  {category:'Mose',icon:'🌊',text:'Sei mutig und stark. Du musst deinen Weg nicht so gehen, als wärst du verlassen.',source:'Sinngemäß nach 5. Mose 31,6 · Mose · Hoffnung für alle (HFA)'},
+
+  {category:'Jesaja',icon:'🕊️',text:'Wer neue Hoffnung findet, kann auch nach Erschöpfung wieder Kraft bekommen.',source:'Sinngemäß nach Jesaja 40,31 · Hoffnung für alle (HFA)'},
+  {category:'Jesaja',icon:'🕊️',text:'Fürchte dich nicht: Auch in Unsicherheit darfst du mit Hilfe und Halt rechnen.',source:'Sinngemäß nach Jesaja 41,10 · Hoffnung für alle (HFA)'},
+  {category:'Jesaja',icon:'🕊️',text:'Schwere Zeiten bedeuten nicht automatisch, dass du verlassen bist.',source:'Sinngemäß nach Jesaja 43,2 · Hoffnung für alle (HFA)'},
+
+  {category:'Josef',icon:'🌾',text:'Was andere gegen dich geplant haben, muss nicht bestimmen, wie deine Geschichte endet.',source:'Sinngemäß nach 1. Mose 50,20 · Josef · Hoffnung für alle (HFA)'},
+  {category:'Josef',icon:'🌾',text:'Treue in kleinen und schwierigen Situationen kann dich auf Verantwortung vorbereiten, die du heute noch nicht siehst.',source:'Inspiriert von 1. Mose 39–41 · Josef · Hoffnung für alle (HFA)'},
+
+  {category:'Esther',icon:'👑',text:'Vielleicht bist du genau für einen Moment wie diesen an deinem Platz.',source:'Sinngemäß nach Esther 4,14 · Hoffnung für alle (HFA)'},
+  {category:'Esther',icon:'👑',text:'Mut bedeutet manchmal, trotz Risiko Verantwortung für andere zu übernehmen.',source:'Inspiriert von Esther 4,15–16 · Hoffnung für alle (HFA)'},
+
+  {category:'Daniel',icon:'🦁',text:'Bleib deinen Überzeugungen treu, auch wenn der Druck von außen größer wird.',source:'Inspiriert von Daniel 6 · Hoffnung für alle (HFA)'},
+  {category:'Daniel',icon:'🦁',text:'Eine schwierige Umgebung muss nicht bestimmen, welchen Charakter du entwickelst.',source:'Inspiriert von Daniel 1 · Hoffnung für alle (HFA)'},
+
+  {category:'Petrus',icon:'⚓',text:'Du darfst deine Sorgen abgeben, statt sie allein zu tragen.',source:'Sinngemäß nach 1. Petrus 5,7 · Petrus · Hoffnung für alle (HFA)'},
+  {category:'Petrus',icon:'⚓',text:'Nach schwierigen Zeiten kann neue Festigkeit und Stärke entstehen.',source:'Sinngemäß nach 1. Petrus 5,10 · Petrus · Hoffnung für alle (HFA)'},
+
+  {category:'Nehemia',icon:'🧱',text:'Lass dich von Widerstand nicht vom Wiederaufbau abhalten. Arbeite Schritt für Schritt weiter.',source:'Inspiriert von Nehemia 2–6 · Hoffnung für alle (HFA)'},
+  {category:'Nehemia',icon:'🧱',text:'Freude und Hoffnung können dir neue Kraft für die nächste Aufgabe geben.',source:'Sinngemäß nach Nehemia 8,10 · Hoffnung für alle (HFA)'},
+
+  {category:'Maria',icon:'🌿',text:'Auch wenn du noch nicht verstehst, wie alles geschehen soll, darfst du Vertrauen wagen.',source:'Inspiriert von Lukas 1,34–38 · Maria · Hoffnung für alle (HFA)'},
+  {category:'Maria',icon:'🌿',text:'Große Veränderungen beginnen manchmal mit einem einfachen Ja zum nächsten Schritt.',source:'Inspiriert von Lukas 1,38 · Maria · Hoffnung für alle (HFA)'},
+
+  {category:'Hiob',icon:'🌅',text:'Auch nach Verlust und tiefen Fragen kann Hoffnung bestehen bleiben.',source:'Inspiriert von Hiob 19,25 · Hoffnung für alle (HFA)'},
+  {category:'Ruth',icon:'🌾',text:'Treue in kleinen Entscheidungen kann Wege öffnen, die du am Anfang noch nicht sehen kannst.',source:'Inspiriert von Ruth 1–4 · Hoffnung für alle (HFA)'},
+
   {category:'Philosophie',icon:'🏛',text:'Konzentriere deine Kraft auf das, was du beeinflussen kannst.',source:'Sinngemäß nach Marcus Aurelius'},
   {category:'Philosophie',icon:'🏛',text:'Schwierigkeiten werden kleiner, wenn du ihnen Schritt für Schritt begegnest.',source:'Sinngemäß nach Seneca'},
   {category:'Philosophie',icon:'🏛',text:'Der Anfang einer Veränderung ist, ehrlich zu erkennen, was du noch nicht weißt.',source:'Sinngemäß nach Sokrates'},
