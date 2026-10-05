@@ -20,28 +20,83 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{warn('
 
 
 const MOTIVATION_QUOTES = [
-  {category:'Jesus',icon:'✝',text:'Bei Gott sind alle Dinge möglich.',source:'Matthäus 19,26 · Luther 1912'},
-  {category:'Jesus',icon:'✝',text:'Alles ist möglich dem, der da glaubt.',source:'Markus 9,23 · Luther 1912'},
-  {category:'Bibel',icon:'📖',text:'Sei getrost und unverzagt.',source:'Josua 1,9 · Luther 1912'},
-  {category:'Bibel',icon:'📖',text:'Des Menschen Herz erdenkt sich seinen Weg; aber der HERR allein lenkt seinen Gang.',source:'Sprüche 16,9 · Luther 1912'},
+  {category:'Jesus',icon:'✝',text:'Vertraue darauf: Für Gott ist nichts unmöglich.',source:'Sinngemäß nach Matthäus 19,26 · Hoffnung für alle (HFA)'},
+  {category:'Jesus',icon:'✝',text:'Glaube kann dir neue Möglichkeiten eröffnen, wo du vorher nur Grenzen gesehen hast.',source:'Sinngemäß nach Markus 9,23 · Hoffnung für alle (HFA)'},
+  {category:'Jesus',icon:'✝',text:'Bitte, suche und klopfe an – gib nicht vorschnell auf.',source:'Sinngemäß nach Matthäus 7,7–8 · Hoffnung für alle (HFA)'},
+  {category:'Jesus',icon:'✝',text:'Lass dich nicht von Angst bestimmen. Halte am Vertrauen fest.',source:'Sinngemäß nach Markus 5,36 · Hoffnung für alle (HFA)'},
+  {category:'Jesus',icon:'✝',text:'Wer in kleinen Dingen zuverlässig ist, kann auch größere Verantwortung tragen.',source:'Sinngemäß nach Lukas 16,10 · Hoffnung für alle (HFA)'},
+  {category:'Jesus',icon:'✝',text:'Sorge dich nicht nur um morgen – konzentriere dich auf das, was heute vor dir liegt.',source:'Sinngemäß nach Matthäus 6,34 · Hoffnung für alle (HFA)'},
+  {category:'Jesus',icon:'✝',text:'Behandle andere so, wie du selbst behandelt werden möchtest.',source:'Sinngemäß nach Matthäus 7,12 · Hoffnung für alle (HFA)'},
+  {category:'Jesus',icon:'✝',text:'Wer bereit ist zu hören, kann wirklich verstehen.',source:'Sinngemäß nach Markus 4,9 · Hoffnung für alle (HFA)'},
+
+  {category:'Bibel',icon:'📖',text:'Sei mutig und entschlossen. Du musst deinen Weg nicht von Angst bestimmen lassen.',source:'Sinngemäß nach Josua 1,9 · Hoffnung für alle (HFA)'},
+  {category:'Bibel',icon:'📖',text:'Plane deinen Weg sorgfältig und vertraue darauf, dass Gott dich führen kann.',source:'Sinngemäß nach Sprüche 16,9 · Hoffnung für alle (HFA)'},
+  {category:'Bibel',icon:'📖',text:'Für alles im Leben gibt es die passende Zeit.',source:'Sinngemäß nach Prediger 3,1 · Hoffnung für alle (HFA)'},
+  {category:'Bibel',icon:'📖',text:'Geduld und Selbstbeherrschung sind wertvoller als bloße Stärke.',source:'Sinngemäß nach Sprüche 16,32 · Hoffnung für alle (HFA)'},
+  {category:'Bibel',icon:'📖',text:'Guter Rat hilft dir, bessere Entscheidungen zu treffen.',source:'Sinngemäß nach Sprüche 11,14 · Hoffnung für alle (HFA)'},
+  {category:'Bibel',icon:'📖',text:'Wer Weisheit sucht, gewinnt etwas Wertvolleres als schnellen Erfolg.',source:'Sinngemäß nach Sprüche 3,13–14 · Hoffnung für alle (HFA)'},
+  {category:'Bibel',icon:'📖',text:'Vertraue nicht nur auf dein eigenes Verständnis – bleib offen für Führung.',source:'Sinngemäß nach Sprüche 3,5–6 · Hoffnung für alle (HFA)'},
+  {category:'Bibel',icon:'📖',text:'Ausdauer hilft dir, auch schwere Phasen durchzustehen.',source:'Sinngemäß nach Jakobus 1,2–4 · Hoffnung für alle (HFA)'},
+  {category:'Bibel',icon:'📖',text:'Wenn dir Weisheit fehlt, darfst du darum bitten.',source:'Sinngemäß nach Jakobus 1,5 · Hoffnung für alle (HFA)'},
+  {category:'Bibel',icon:'📖',text:'Richte deine Gedanken auf das, was wahr, gut und hilfreich ist.',source:'Sinngemäß nach Philipper 4,8 · Hoffnung für alle (HFA)'},
+  {category:'Bibel',icon:'📖',text:'Gib nicht auf, Gutes zu tun – Ausdauer trägt mit der Zeit Früchte.',source:'Sinngemäß nach Galater 6,9 · Hoffnung für alle (HFA)'},
+  {category:'Bibel',icon:'📖',text:'Prüfe Dinge sorgfältig und behalte das Gute.',source:'Sinngemäß nach 1. Thessalonicher 5,21 · Hoffnung für alle (HFA)'},
+
   {category:'Philosophie',icon:'🏛',text:'Konzentriere deine Kraft auf das, was du beeinflussen kannst.',source:'Sinngemäß nach Marcus Aurelius'},
   {category:'Philosophie',icon:'🏛',text:'Schwierigkeiten werden kleiner, wenn du ihnen Schritt für Schritt begegnest.',source:'Sinngemäß nach Seneca'},
   {category:'Philosophie',icon:'🏛',text:'Der Anfang einer Veränderung ist, ehrlich zu erkennen, was du noch nicht weißt.',source:'Sinngemäß nach Sokrates'},
+  {category:'Philosophie',icon:'🏛',text:'Nicht jedes Hindernis ist ein Stoppschild; manches zwingt dich nur, besser zu denken.',source:'Inspiriert von stoischer Philosophie'},
+  {category:'Philosophie',icon:'🏛',text:'Deine Gewohnheiten formen mit der Zeit deinen Charakter.',source:'Sinngemäß nach Aristoteles'},
+  {category:'Philosophie',icon:'🏛',text:'Wer lernen will, muss bereit sein, seine erste Meinung zu überprüfen.',source:'Sinngemäß nach Sokrates'},
+  {category:'Philosophie',icon:'🏛',text:'Ruhe entsteht, wenn du deine Energie nicht an Unveränderbares verschwendest.',source:'Sinngemäß nach Epiktet'},
+  {category:'Philosophie',icon:'🏛',text:'Fortschritt beginnt oft dort, wo Bequemlichkeit endet.',source:'Inspiriert von stoischer Philosophie'},
+  {category:'Philosophie',icon:'🏛',text:'Eine große Aufgabe wird machbar, wenn du sie in kleine Handlungen zerlegst.',source:'Inspiriert von praktischer Philosophie'},
+  {category:'Philosophie',icon:'🏛',text:'Geduld bedeutet nicht Stillstand, sondern konsequentes Weitergehen ohne Hektik.',source:'Inspiriert von stoischer Philosophie'},
+
   {category:'Sport',icon:'🏆',text:'Disziplin bedeutet, auch dann weiterzumachen, wenn die Motivation gerade fehlt.',source:'Motivationsgedanke aus dem Leistungssport'},
-  {category:'Sport',icon:'🏀',text:'Fehlversuche zeigen dir nicht, dass du aufhören sollst – sie zeigen dir, woran du arbeiten kannst.',source:'Sinngemäß inspiriert von Michael Jordan'},
+  {category:'Sport',icon:'🏀',text:'Fehlversuche zeigen dir, woran du als Nächstes arbeiten kannst.',source:'Sinngemäß inspiriert von Michael Jordan'},
   {category:'Sport',icon:'🏆',text:'Fortschritt entsteht nicht durch einen perfekten Tag, sondern durch viele gute Wiederholungen.',source:'Inspiriert vom Trainingsprinzip im Sport'},
+  {category:'Sport',icon:'⚽',text:'Trainiere die Grundlagen so lange, bis du sie auch unter Druck abrufen kannst.',source:'Motivationsgedanke aus dem Leistungssport'},
+  {category:'Sport',icon:'🥊',text:'Ein harter Tag entscheidet nicht über deinen Weg. Entscheidend ist, ob du wieder antrittst.',source:'Inspiriert vom Boxsport'},
+  {category:'Sport',icon:'🏃',text:'Beständigkeit bringt dich oft weiter als ein kurzer Sprint.',source:'Inspiriert vom Ausdauertraining'},
+  {category:'Sport',icon:'🏀',text:'Verlorene Punkte gehören zum Spiel. Wichtig ist die nächste Aktion.',source:'Inspiriert vom Basketball'},
+  {category:'Sport',icon:'⚽',text:'Gute Vorbereitung gibt dir Sicherheit, wenn der Druck steigt.',source:'Inspiriert vom Profisport'},
+  {category:'Sport',icon:'🏆',text:'Vergleiche dich weniger mit anderen und mehr mit deiner Leistung von gestern.',source:'Motivationsgedanke aus dem Sport'},
+  {category:'Sport',icon:'🥇',text:'Talent kann dir einen Vorsprung geben. Training entscheidet, was du daraus machst.',source:'Motivationsgedanke aus dem Leistungssport'},
+
   {category:'Unternehmertum',icon:'🚀',text:'Eine Idee wird erst wertvoll, wenn du beginnst, sie umzusetzen und daraus zu lernen.',source:'Motivationsgedanke aus dem Unternehmertum'},
   {category:'Unternehmertum',icon:'💡',text:'Baue, teste, lerne und verbessere – statt auf den perfekten ersten Versuch zu warten.',source:'Sinngemäß inspiriert von Sara Blakely'},
   {category:'Unternehmertum',icon:'🛠',text:'Gute Arbeit entsteht leichter, wenn du einen Sinn darin siehst und neugierig bleibst.',source:'Sinngemäß inspiriert von Steve Jobs'},
   {category:'Unternehmertum',icon:'🚀',text:'Fehler sind Daten: Nutze sie, verbessere deinen nächsten Versuch und gehe weiter.',source:'Inspiriert von iterativem Arbeiten'},
+  {category:'Unternehmertum',icon:'📈',text:'Ein kleines Ergebnis heute ist wertvoller als ein perfekter Plan, den du nie beginnst.',source:'Motivationsgedanke aus dem Unternehmertum'},
+  {category:'Unternehmertum',icon:'💼',text:'Wer Probleme gut versteht, findet meist bessere Lösungen als jemand, der nur schnell antwortet.',source:'Inspiriert von Produktentwicklung'},
+  {category:'Unternehmertum',icon:'🧪',text:'Teste Annahmen früh, damit du Fehler bemerkst, solange sie noch klein sind.',source:'Inspiriert von Lean-Startup-Prinzipien'},
+  {category:'Unternehmertum',icon:'🧭',text:'Ein klares Ziel macht Entscheidungen leichter.',source:'Motivationsgedanke aus Führung und Unternehmertum'},
+
   {category:'Film',icon:'🎬',text:'Nicht der Rückschlag entscheidet, sondern ob du danach wieder aufstehst.',source:'Inspiriert von Rocky'},
   {category:'Film',icon:'🎬',text:'Große Aufgaben wirken kleiner, wenn du den nächsten machbaren Schritt wählst.',source:'Inspiriert von Abenteuer- und Heldenfilmen'},
-  {category:'Buch',icon:'📚',text:'Wissen wächst, wenn du es anwendest – nicht nur, wenn du es liest.',source:'Inspiriert von Learning-by-Doing'},
-  {category:'Buch',icon:'📚',text:'Du musst nicht alles heute können. Du musst heute nur etwas besser verstehen als gestern.',source:'Lernmotivationsgedanke'},
+  {category:'Film',icon:'🎬',text:'Mut bedeutet nicht, keine Angst zu haben, sondern trotzdem weiterzugehen.',source:'Inspiriert von Heldenreisen im Film'},
+  {category:'Film',icon:'🎬',text:'Manchmal verändert nicht die größte Entscheidung dein Leben, sondern die nächste richtige.',source:'Inspiriert von Coming-of-Age-Filmen'},
+  {category:'Film',icon:'🎬',text:'Du musst nicht der Beste im Raum sein, um heute etwas dazuzulernen.',source:'Inspiriert von Trainings- und Mentorenfilmen'},
+
+  {category:'Buch',icon:'📚',text:'Wissen wächst, wenn du es anwendest – nicht nur, wenn du es liest.',source:'Inspiriert vom Prinzip Learning by Doing'},
+  {category:'Buch',icon:'📚',text:'Kleine Gewohnheiten wirken unscheinbar, können aber langfristig große Veränderungen auslösen.',source:'Sinngemäß inspiriert von Atomic Habits'},
+  {category:'Buch',icon:'📚',text:'Ein Problem wird leichter, wenn du es klar benennst und in kleinere Teile zerlegst.',source:'Inspiriert von Problemlösungs-Literatur'},
+  {category:'Buch',icon:'📚',text:'Nicht mehr Informationen machen dich automatisch besser – entscheidend ist, was du damit tust.',source:'Inspiriert von Lern- und Sachbüchern'},
+  {category:'Buch',icon:'📚',text:'Wer regelmäßig reflektiert, erkennt schneller, was funktioniert und was geändert werden muss.',source:'Inspiriert von Lern- und Entwicklungsbüchern'},
+
   {category:'Lernen',icon:'🧠',text:'Eine falsche Antwort ist kein Ende. Sie zeigt dir genau, was du als Nächstes lernen kannst.',source:'Learning by Doing'},
-  {category:'Lernen',icon:'🧠',text:'Verstehen schlägt Auswendiglernen – besonders dann, wenn die Aufgabe plötzlich anders gestellt wird.',source:'Learning by Doing'},
-  {category:'Lernen',icon:'🧠',text:'Zehn konzentrierte Minuten heute sind besser als zwei Stunden, die du immer wieder verschiebst.',source:'Learning by Doing'}
+  {category:'Lernen',icon:'🧠',text:'Verstehen schlägt Auswendiglernen – besonders wenn die Aufgabe plötzlich anders gestellt wird.',source:'Learning by Doing'},
+  {category:'Lernen',icon:'🧠',text:'Zehn konzentrierte Minuten heute sind besser als zwei Stunden, die du immer wieder verschiebst.',source:'Learning by Doing'},
+  {category:'Lernen',icon:'🧠',text:'Wenn du eine Sache erklären kannst, ohne in deine Unterlagen zu schauen, bist du dem Verständnis näher.',source:'Learning by Doing'},
+  {category:'Lernen',icon:'🧠',text:'Wiederholen ist kein Rückschritt. Wiederholen macht Wissen abrufbar.',source:'Learning by Doing'},
+  {category:'Lernen',icon:'🧠',text:'Rechne den Weg selbst nach – das Ergebnis allein bringt dir in der Prüfung wenig.',source:'Learning by Doing'},
+  {category:'Lernen',icon:'🧠',text:'Lerne nicht nur die richtige Antwort. Lerne, warum die anderen Antworten falsch sind.',source:'Learning by Doing'},
+  {category:'Lernen',icon:'🧠',text:'Schwierige Themen werden leichter, wenn du sie oft genug in kleinen Portionen bearbeitest.',source:'Learning by Doing'},
+  {category:'Lernen',icon:'🧠',text:'Ein guter Lerntag muss nicht lang sein. Er muss konzentriert und ehrlich sein.',source:'Learning by Doing'},
+  {category:'Lernen',icon:'🧠',text:'Dein Fortschritt steckt nicht nur in Punkten, sondern in den Dingen, die du heute erklären kannst.',source:'Learning by Doing'}
 ];
+
 function motivationIndex(){
   const slot=Math.floor(Date.now()/(30*60*1000));
   return (slot+(Number(state.quoteShift)||0))%MOTIVATION_QUOTES.length;
