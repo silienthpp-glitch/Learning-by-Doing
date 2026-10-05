@@ -86,6 +86,24 @@ Das Dashboard zeigt:
 
 XP erhältst du durch Lernen, gemeisterte Aufgaben und Lernspiele. Ein Level benötigt aktuell 250 XP.
 
+## Motivation auf dem Dashboard
+
+Das Dashboard zeigt zusätzlich einen wechselnden Motivationsspruch. Die Karte rotiert automatisch ungefähr alle **30 Minuten** und kann mit **„Neuer Spruch“** sofort gewechselt werden.
+
+Die Sammlung enthält mehrere Kategorien:
+
+- Jesus / Bibel
+- klassische Philosophie
+- Sport
+- Unternehmertum
+- Filme
+- Bücher
+- Lernen
+
+Kurze gemeinfreie Bibelstellen werden mit Quelle angegeben. Bei modernen Personen, Filmen oder Büchern verwendet die App bewusst sinngemäße, als Inspiration gekennzeichnete Formulierungen statt längerer geschützter Originalzitate.
+
+Die Sprüche liegen lokal im Projekt und benötigen beim normalen Anzeigen keine Internetverbindung.
+
 ## Lernspiele
 
 ### Memory – Frage & Antwort
