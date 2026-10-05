@@ -1,18 +1,31 @@
 [
   {
-    "id": "eigene-netz-001",
-    "topic": "Netzwerktechnik",
-    "prompt": "Welches Gerät verbindet unterschiedliche IP-Netzwerke miteinander?",
-    "answer": "Router",
-    "explanation": "Ein Switch verbindet Geräte innerhalb eines lokalen Netzwerks. Ein Router leitet IP-Pakete zwischen verschiedenen Netzwerken weiter. Dein Heimrouter verbindet zum Beispiel dein Heimnetz mit dem Netz deines Internetanbieters.",
-    "steps": [],
-    "type": "choice",
-    "options": [
-      "Switch",
-      "Router",
-      "Patchpanel",
-      "Access Point"
+    "id": "eigene-netzwerk-001",
+    "subject": "Netzwerktechnik",
+    "topic": "Subnetting",
+    "prompt": "Wie viele nutzbare Host-Adressen hat ein normales IPv4-/28-Netz?",
+    "type": "number",
+    "answer": "14",
+    "explanation": "Ein /28-Netz hat vier Host-Bits. Das ergibt 16 Adressen. Netzwerk- und Broadcastadresse sind reserviert.",
+    "steps": [
+      "32 - 28 = 4 Host-Bits",
+      "2^4 = 16 Adressen",
+      "16 - 2 = 14 nutzbare Host-Adressen"
     ],
+    "options": [],
+    "aliases": [],
+    "points": 2
+  },
+  {
+    "id": "eigene-netzwerk-002",
+    "subject": "Netzwerktechnik",
+    "topic": "Netzwerkgeräte",
+    "prompt": "Welches Gerät verbindet unterschiedliche IP-Netze miteinander?",
+    "type": "choice",
+    "answer": "Router",
+    "explanation": "Ein Router entscheidet anhand von IP-Netzen, wohin Pakete weitergeleitet werden.",
+    "steps": [],
+    "options": ["Switch", "Router", "Patchpanel", "Access Point"],
     "aliases": [],
     "points": 2
   }
