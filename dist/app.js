@@ -240,7 +240,7 @@ function cardsFromText(text,set,file){
   if(cleaned.length<40)return[];
 
   let chunks=cleaned.split(/\n{2,}/);
-  if(chunks.length<3){
+  if(chunks.length===1&&cleaned.length>500){
     chunks=(cleaned.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[cleaned]);
   }
   chunks=[...new Set(chunks.map(x=>x.replace(/\s+/g,' ').trim()).filter(x=>x.length>=30&&x.length<=800))].slice(0,40);
