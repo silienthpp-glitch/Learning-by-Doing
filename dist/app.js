@@ -31,6 +31,17 @@ function bySet(s){return questions().filter(q=>q.setId===s)}
 function setById(s){return state.sets.find(x=>x.id===s)}
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function formatDate(v){if(!v)return'';const[y,m,d]=v.split('-');return d+'.'+m+'.'+y}
+function deadlineText(v){
+  if(!v)return'';
+  const today=new Date();today.setHours(0,0,0,0);
+  const target=new Date(v+'T00:00:00');
+  const days=Math.round((target-today)/DAY);
+  if(days===0)return'Heute';
+  if(days===1)return'Morgen';
+  if(days>1)return'In '+days+' Tagen';
+  if(days===-1)return'Gestern';
+  return'Vor '+Math.abs(days)+' Tagen';
+}
 function totalXp(){return state.history.reduce((n,x)=>n+(x.correct?12:4),0)+questions().filter(mastered).length*25+(state.games||[]).reduce((n,x)=>n+(x.xp||0),0)}
 function level(){const xp=totalXp(),step=250;return{xp,n:Math.floor(xp/step)+1,cur:xp%step,step}}
 function streak(){
@@ -51,9 +62,10 @@ function rows(key){
   return values.map(v=>{const list=questions().filter(q=>(key==='subject'?(q.subject||'Allgemein'):q.topic)===v);return '<div class="topic-row"><div class="topic-line"><strong>'+esc(v)+'</strong><small>'+pct(list)+'% sicher · '+list.length+' Aufgaben</small></div><progress max="100" value="'+pct(list)+'"></progress></div>'}).join('');
 }
 function setCard(s){
-  const list=bySet(s.id),sources=state.sources.filter(x=>x.setId===s.id).length;
-  return '<article class="set-card"><div class="topic-line"><span class="tag">'+esc(s.kind)+'</span>'+(s.date?'<small>'+esc(formatDate(s.date))+'</small>':'')+'</div><h3>'+esc(s.name)+'</h3><p>'+esc(s.subject)+'</p><progress max="100" value="'+pct(list)+'"></progress><div class="small">'+pct(list)+'% sicher · '+list.length+' Karten/Fragen · '+sources+' Dateien</div><div class="actions compact"><button data-set-learn="'+esc(s.id)+'">Lernen</button><button class="quiet" data-set-delete="'+esc(s.id)+'">Löschen</button></div></article>';
+  const list=bySet(s.id),sources=state.sources.filter(x=>x.setId===s.id).length,deadline=deadlineText(s.date);
+  return '<article class="set-card"><div class="topic-line"><span class="tag">'+esc(s.kind)+'</span>'+(s.date?'<small title="'+esc(formatDate(s.date))+'">'+esc(deadline)+' · '+esc(formatDate(s.date))+'</small>':'')+'</div><h3>'+esc(s.name)+'</h3><p>'+esc(s.subject)+'</p><progress max="100" value="'+pct(list)+'"></progress><div class="small">'+pct(list)+'% sicher · '+list.length+' Karten/Fragen · '+sources+' Dateien</div><div class="actions compact"><button data-set-learn="'+esc(s.id)+'">Lernen</button><button class="quiet" data-set-delete="'+esc(s.id)+'">Löschen</button></div></article>';
 }
+
 
 function render(){
   document.body.classList.toggle('dark',state.theme==='dark');
@@ -147,10 +159,17 @@ function renderQuestion(){
   else document.querySelector('#answer-form').onsubmit=e=>{e.preventDefault();submit(new FormData(e.target).get('answer'))};
   document.querySelector('#end').onclick=()=>{if(s.mode==='exam'&&s.results.length)summary(true);else{session=null;render()}};
 }
-function norm(v){return String(v??'').trim().toLowerCase().replace(/,/g,'.').replace(/s+/g,' ')}
+function norm(v){return String(v??'').trim().toLowerCase().replace(/,/g,'.').replace(/\s+/g,' ')}
+function numericValue(v){
+  const n=norm(v),m=n.match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))(?:\s*[^0-9].*)?$/);
+  return m?Number(m[1]):NaN;
+}
 function correct(q,v){
   const n=norm(v);
-  if(q.type==='number')return /^[+-]?(?:d+(?:.d+)?|.d+)$/.test(n)&&Number(n)===Number(norm(q.answer));
+  if(q.type==='number'){
+    const given=numericValue(n),expected=numericValue(q.answer);
+    return Number.isFinite(given)&&Number.isFinite(expected)&&given===expected;
+  }
   return [q.answer,...(q.aliases||[])].some(a=>norm(a)===n);
 }
 function update(q,ok){
@@ -208,26 +227,68 @@ async function importMaterials(form){
   save();message=count+' Datei(en) eingelesen · '+cards+' neue Karten/Fragen.'+(notes.length?' Hinweise: '+notes.join(' | '):'');render();
 }
 function cardsFromText(text,set,file){
-  const cleaned=String(text||'').replace(/ /g,' ').replace(/[ 	]+/g,' ').replace(/
-{3,}/g,'
+  const cleaned=String(text||'')
+    .replace(/\u0000/g,' ')
+    .replace(/[ \t]+/g,' ')
+    .replace(/\r\n?/g,'\n')
+    .replace(/\n{3,}/g,'\n\n')
+    .trim();
+  if(cleaned.length<40)return[];
 
-').trim();if(cleaned.length<40)return[];
-  return [...new Set(cleaned.split(/
-{2,}|(?<=[.!?])s+(?=[A-ZÄÖÜ0-9])/).map(x=>x.replace(/s+/g,' ').trim()).filter(x=>x.length>=30&&x.length<=800))].slice(0,40).map((chunk,i)=>{
-    const m=chunk.match(/^(.{2,80}?)(?:s+ists+|s+bedeutets+|s+bezeichnets+|:s+)(.{10,700})$/i),lead=chunk.split(/[,:;–-]/)[0].trim().slice(0,90);
-    return{id:id('card')+'-'+i,subject:set.subject,setId:set.id,sourceName:file,topic:set.name,prompt:m?'Erkläre „'+m[1].trim()+'“ in eigenen Worten.':'Was solltest du zu „'+lead+(lead.length>=90?'…':'')+'“ wissen?',answer:m?m[2].trim():chunk,explanation:'Automatisch aus „'+file+'“ erstellt. Vergleiche deine Erklärung mit dem Originaltext.',steps:[],type:'selfcheck',options:[],aliases:[],points:1};
+  let chunks=cleaned.split(/\n{2,}/);
+  if(chunks.length<3){
+    chunks=(cleaned.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[cleaned]);
+  }
+  chunks=[...new Set(chunks.map(x=>x.replace(/\s+/g,' ').trim()).filter(x=>x.length>=30&&x.length<=800))].slice(0,40);
+
+  return chunks.map((chunk,i)=>{
+    const m=chunk.match(/^(.{2,80}?)(?:\s+ist\s+|\s+bedeutet\s+|\s+bezeichnet\s+|:\s+)(.{10,700})$/i);
+    const lead=chunk.split(/[,:;–-]/)[0].trim().slice(0,90);
+    return{
+      id:id('card')+'-'+i,
+      subject:set.subject,
+      setId:set.id,
+      sourceName:file,
+      topic:set.name,
+      prompt:m?'Erkläre „'+m[1].trim()+'“ in eigenen Worten.':'Was solltest du zu „'+lead+(lead.length>=90?'…':'')+'“ wissen?',
+      answer:m?m[2].trim():chunk,
+      explanation:'Automatisch aus „'+file+'“ erstellt. Vergleiche deine Erklärung mit dem Originaltext.',
+      steps:[],
+      type:'selfcheck',
+      options:[],
+      aliases:[],
+      points:1
+    };
   });
 }
 let pdfPromise;
 function pdfLib(){
-  if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);if(pdfPromise)return pdfPromise;
-  pdfPromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';resolve(window.pdfjsLib)};s.onerror=()=>reject(Error('PDF-Modul konnte nicht geladen werden. Beim ersten PDF-Import ist Internet nötig.'));document.head.appendChild(s)});return pdfPromise;
+  if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
+  if(pdfPromise)return pdfPromise;
+  pdfPromise=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=()=>{
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      resolve(window.pdfjsLib);
+    };
+    s.onerror=()=>{
+      pdfPromise=null;
+      reject(Error('PDF-Modul konnte nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.'));
+    };
+    document.head.appendChild(s);
+  });
+  return pdfPromise;
 }
 async function pdfText(file){
-  const lib=await pdfLib(),pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise,out=[];
-  for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i),c=await p.getTextContent();out.push(c.items.map(x=>x.str).join(' '))}return out.join('
-
-');
+  const lib=await pdfLib();
+  const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  const out=[];
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i),content=await page.getTextContent();
+    out.push(content.items.map(x=>x.str).join(' '));
+  }
+  return out.join('\n\n');
 }
 function validate(input,allowEmpty=true){
   if(!Array.isArray(input)||(!allowEmpty&&!input.length)||input.length>2000)throw Error('Erwartet wird eine Liste mit 1 bis 2.000 Aufgaben.');
@@ -264,9 +325,15 @@ function reward(type,xp){state.games.push({type,xp,at:Date.now()});save()}
 function memory(){
   const done=game.matched.size===game.pairs;
   app.innerHTML=head('Memory: Frage & Antwort',done?'Alle Paare gefunden!':'Finde die passende Lösung zu jeder Frage.',game.matched.size+'/'+game.pairs+' Paare')+
-  '<section class="card"><div class="memory-grid">'+game.cards.map(c=>{const open=game.open.includes(c.id)||game.matched.has(c.pair);return '<button class="memory-card '+(open?'open ':'')+(game.matched.has(c.pair)?'matched':'')+'" data-memory="'+esc(c.id)+'" '+(game.matched.has(c.pair)?'disabled':'')+'><span>'+(open?'<small>'+esc(c.kind)+'</small>'+esc(c.text):'?')+'</span></button>'}).join('')+'</div>'+(done?'<div class="game-win"><strong>+60 XP</strong><p>Memory abgeschlossen.</p><button id="game-finish">Zurück zu den Lernspielen</button></div>':'</section>');
-  if(done){if(!game.rewarded){reward('memory',60);game.rewarded=true}document.querySelector('#game-finish').onclick=finishGame}
-  else document.querySelectorAll('[data-memory]').forEach(b=>b.onclick=()=>flip(b.dataset.memory));
+  '<section class="card"><div class="memory-grid">'+game.cards.map(c=>{const open=game.open.includes(c.id)||game.matched.has(c.pair);return '<button class="memory-card '+(open?'open ':'')+(game.matched.has(c.pair)?'matched':'')+'" data-memory="'+esc(c.id)+'" '+(game.matched.has(c.pair)?'disabled':'')+'><span>'+(open?'<small>'+esc(c.kind)+'</small>'+esc(c.text):'?')+'</span></button>'}).join('')+'</div>'+
+  (done?'<div class="game-win"><strong>+60 XP</strong><p>Memory abgeschlossen.</p><button id="game-finish">Zurück zu den Lernspielen</button></div>':'')+
+  '</section>';
+  if(done){
+    if(!game.rewarded){reward('memory',60);game.rewarded=true}
+    document.querySelector('#game-finish').onclick=finishGame;
+  }else{
+    document.querySelectorAll('[data-memory]').forEach(b=>b.onclick=()=>flip(b.dataset.memory));
+  }
 }
 function flip(cid){
   if(!game||game.open.length>=2||game.open.includes(cid))return;game.open.push(cid);memory();
@@ -316,6 +383,12 @@ async function restore(e){
   const t=document.querySelector('#restore-status');try{const f=e.target.files[0];if(!f)return;const v=JSON.parse(await f.text());if(![1,2].includes(v.version))throw Error('Unbekannte Sicherungsversion.');if(!confirm('Aktuelle Lerndaten durch diese Sicherung ersetzen?'))return;state=v.version===2?{...blank(),...v}:{...blank(),...v,version:2,sets:[],sources:[],games:[]};save();render()}catch(err){if(t)t.textContent='Wiederherstellung nicht möglich: '+err.message}
 }
 
+document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{
+  if(session?.mode==='exam'&&session.results.length&&!confirm('Die laufende Probeprüfung wird beendet und noch nicht ausgewertete Antworten gehen verloren. Wirklich verlassen?'))e.preventDefault();
+}));
+window.addEventListener('beforeunload',e=>{
+  if(session?.mode==='exam'&&session.results.length){e.preventDefault();e.returnValue='';}
+});
 window.addEventListener('hashchange',()=>{session=null;game=null;render()});
 document.querySelector('#theme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';save();render()};
 render();
