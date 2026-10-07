@@ -163,7 +163,7 @@ function refreshMotivation(){
 }
 
 function questions(){
-  return [...(window.EXAMPLE_QUESTIONS||[]).map(q=>({...q,subject:q.subject||'IHK AP2',setId:q.setId||'',sourceName:q.sourceName||'Beispielaufgaben'})),...(state.custom||[])];
+  return [...(window.EXAMPLE_QUESTIONS||[]).map(q=>({...q,subject:q.subject||'IHK AP2',setId:q.setId||'',sourceName:q.sourceName||'Beispielaufgaben'})),...(state.custom||[]).filter(q=>!window.StudyImport.legacyNoise(q))];
 }
 function rec(q){return state.records[q.id]||{attempts:0,correct:0,streak:0,due:0,last:0}}
 function mastered(q){return rec(q).streak>=3}
@@ -253,8 +253,8 @@ function learn(route){
 
 function library(){
   app.innerHTML=head('Fächer, Klausuren und Tests.','Organisiere mehrere Fächer gleichzeitig und ordne jede Datei dem passenden Lernset zu.',state.sets.length+' Lernsets')+
-  '<div class="two library-columns"><section class="card"><span class="tag">1 · LERNSET</span><h2>Neues Lernset anlegen</h2><p>Ein Lernset ist zum Beispiel eine Klausur, ein kurzer Test oder eine IHK-Prüfung.</p><form id="set-form" class="stack-form"><label>Name<input name="name" required maxlength="80" placeholder="z. B. Netzwerktechnik Klausur 2"></label><label>Fach<input name="subject" required maxlength="60" placeholder="z. B. Netzwerktechnik"></label><label>Art<select name="kind"><option>Klausur</option><option>Test</option><option>IHK</option><option>Sonstiges</option></select></label><label>Termin (optional)<input name="date" type="date"></label><button type="submit">Lernset anlegen</button></form></section>'+
-  '<section class="card"><span class="tag">2 · DATEIEN</span><h2>Unterlagen hinzufügen</h2><p>PDF, TXT, Markdown oder strukturierte JSON-Fragen. Mehrere Dateien dürfen gleichzeitig gewählt werden.</p><form id="material-form" class="stack-form"><label>Lernset<select name="setId" id="material-set" required><option value="">Bitte wählen</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label><label>Dateien<input id="material-files" type="file" multiple accept=".pdf,.txt,.md,.json,application/pdf,application/json,text/plain,text/markdown" required></label><button type="submit" '+(state.sets.length?'':'disabled')+'>Dateien einlesen</button></form><p id="material-status" class="status-text">'+esc(message)+'</p><div class="hint"><strong>Wichtig:</strong> JSON-Fragen können automatisch geprüft werden. Aus PDF/TXT entstehen Selbstkontroll-Lernkarten. Freie Antworten bewertet die Seite bewusst nicht automatisch.</div></section></div>'+
+  '<div class="hint">Neue Unterlagen werden vor dem Speichern geprüft. Alte automatisch erzeugte Fragen zu Name, Klasse oder Datum werden aus Lernrunden ausgeblendet; gespeicherte Daten bleiben erhalten.</div><div class="two library-columns"><section class="card"><span class="tag">1 · LERNSET</span><h2>Neues Lernset anlegen</h2><p>Ein Lernset ist zum Beispiel eine Klausur, ein kurzer Test oder eine IHK-Prüfung.</p><form id="set-form" class="stack-form"><label>Name<input name="name" required maxlength="80" placeholder="z. B. Netzwerktechnik Klausur 2"></label><label>Fach<input name="subject" required maxlength="60" placeholder="z. B. Netzwerktechnik"></label><label>Art<select name="kind"><option>Klausur</option><option>Test</option><option>IHK</option><option>Sonstiges</option></select></label><label>Termin (optional)<input name="date" type="date"></label><button type="submit">Lernset anlegen</button></form></section>'+
+  '<section class="card"><span class="tag">2 · DATEIEN</span><h2>Unterlagen hinzufügen</h2><p>PDF, TXT, Markdown oder strukturierte JSON-Fragen. Mehrere Dateien dürfen gleichzeitig gewählt werden.</p><form id="material-form" class="stack-form"><label>Lernset<select name="setId" id="material-set" required><option value="">Bitte wählen</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label><label>Dateien<input id="material-files" type="file" multiple accept=".pdf,.txt,.md,.json,application/pdf,application/json,text/plain,text/markdown" required></label><button type="submit" '+(state.sets.length?'':'disabled')+'>Dateien einlesen</button></form><p id="material-status" class="status-text">'+esc(message)+'</p><div class="hint"><strong>Wichtig:</strong> JSON-Fragen können automatisch geprüft werden. Aus PDF/TXT entstehen quellenbasierte Fragevorschläge mit Vorschau. Kopfzeilen werden herausgefiltert. Freie Antworten bewertet die Seite bewusst nicht automatisch.</div></section></div>'+
   '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Deine Lernsets</h2><span class="small">Mehrere Fächer parallel möglich</span></div>'+(state.sets.length?'<div class="set-grid">'+state.sets.map(setCard).join('')+'</div>':'<div class="empty-state"><strong>Noch keine Lernsets.</strong><p>Lege oben dein erstes Lernset an.</p></div>')+'</section>'+
   '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Importierte Dateien</h2><span class="small">'+state.sources.length+' gespeichert</span></div>'+(state.sources.length?'<div class="source-list">'+[...state.sources].reverse().map(s=>'<div><strong>'+esc(s.name)+'</strong><span>'+esc(setById(s.setId)?.name||s.subject)+' · '+(s.cards||0)+' Lernkarten</span></div>').join('')+'</div>':'<p class="muted">Noch keine eigenen Dateien importiert.</p>')+'</section>';
 }
@@ -360,7 +360,7 @@ function submit(answer){
 }
 function reveal(q){
   document.querySelector('#reveal').disabled=true;
-  document.querySelector('#feedback').innerHTML='<div class="feedback"><h3>Vergleiche mit deinen Unterlagen</h3><p>'+esc(q.answer)+'</p><p class="small">'+esc(q.explanation||'')+'</p></div><div class="actions"><button id="knew">✓ Gewusst</button><button id="not-knew" class="danger-soft">↻ Noch nicht sicher</button></div>';
+  document.querySelector('#feedback').innerHTML='<div class="feedback"><h3>Musterlösung · Selbstkontrolle</h3><p>'+esc(q.answer)+'</p>'+(q.evidence?'<details><summary>Originaltext prüfen</summary><p>'+esc(q.evidence)+'</p></details>':'')+'<p class="small">'+esc(q.explanation||'')+'</p></div><div class="actions"><button id="knew">✓ Gewusst</button><button id="not-knew" class="danger-soft">↻ Noch nicht sicher</button></div>';
   document.querySelector('#knew').onclick=()=>selfDone(q,true);document.querySelector('#not-knew').onclick=()=>selfDone(q,false);
 }
 function selfDone(q,ok){
@@ -381,159 +381,59 @@ function createSet(form){
   const d=new FormData(form),s={id:id('set'),name:String(d.get('name')).trim(),subject:String(d.get('subject')).trim(),kind:String(d.get('kind')).trim(),date:String(d.get('date')||''),createdAt:Date.now()};
   if(!s.name||!s.subject)return;state.sets.push(s);save();message='Lernset „'+s.name+'“ wurde angelegt.';render();
 }
+let importBusy=false;
 async function importMaterials(form){
-  const d=new FormData(form),set=setById(String(d.get('setId')||'')),files=[...document.querySelector('#material-files').files],notes=[];if(!set||!files.length)return;
-  document.querySelector('#material-status').textContent='Dateien werden eingelesen …';let count=0,cards=0;
-  for(const file of files)try{
-    if(file.size>15000000)throw Error('Datei größer als 15 MB.');
-    let added;
-    if(file.name.toLowerCase().endsWith('.json')){
-      added=validate(JSON.parse(await file.text()),false).map(q=>({...q,subject:q.subject||set.subject,setId:set.id,sourceName:file.name}));
-    }else{
-      const text=file.name.toLowerCase().endsWith('.pdf')?await pdfText(file):await file.text();added=cardsFromText(text,set,file.name);
-      if(!added.length)throw Error('Keine sinnvollen Lernkarten gefunden.');
+  if(importBusy)return;
+  const set=setById(String(new FormData(form).get('setId')||''));
+  const files=[...document.querySelector('#material-files').files];
+  if(!set||!files.length)return;
+  importBusy=true;const button=form.querySelector('button[type=submit]');button.disabled=true;
+  const status=document.querySelector('#material-status');status.textContent='Texte und Quellen werden geprüft …';
+  const drafts=[],notes=[];
+  try{
+    for(const file of files)try{
+      if(file.size>15000000)throw Error('Datei größer als 15 MB.');
+      let added;
+      if(file.name.toLowerCase().endsWith('.json')){
+        added=validate(JSON.parse(await file.text()),false).map(q=>({...q,subject:q.subject||set.subject,setId:set.id,sourceName:file.name}));
+      }else{
+        const pages=file.name.toLowerCase().endsWith('.pdf')?await pdfPages(file):[{page:null,text:await file.text()}];
+        const analysis=window.StudyImport.analyze(pages);
+        added=analysis.cards.map((q,i)=>({id:id('card')+'-'+i,subject:set.subject,setId:set.id,sourceName:file.name,topic:set.name,prompt:q.prompt,answer:q.answer,evidence:q.evidence,sourcePage:q.page,questionKind:q.kind,generatorVersion:3,explanation:'Quelle: '+file.name+(q.page?' · Seite '+q.page:''),steps:[],type:'selfcheck',options:[],aliases:[],points:1}));
+        if(!added.length)throw Error('Keine zuverlässig ableitbaren Fragen gefunden. Bei Scans zuerst Texterkennung (OCR) durchführen; alternativ Frage/Antwort oder Definitionen als Text verwenden.');
+        notes.push(file.name+': '+added.length+' Vorschläge'+(analysis.skipped?' · '+analysis.skipped+' Abschnitte ohne sichere Frage':'')+(analysis.truncated?' · auf 80 Vorschläge begrenzt':''));
+      }
+      drafts.push(...added);
+    }catch(error){notes.push(file.name+': '+error.message)}
+    status.textContent=notes.join(' | ');
+    if(drafts.length)showImportPreview(drafts,set,notes);
+  }finally{importBusy=false;button.disabled=false;}
+}
+function showImportPreview(drafts,set,notes){
+  document.querySelector('#import-preview')?.remove();
+  const panel=document.createElement('section');panel.id='import-preview';panel.className='card';panel.style.marginTop='24px';
+  panel.innerHTML='<h2>Fragen prüfen und übernehmen</h2><p>Prüfe Fragestellung und Musterlösung anhand der Quelle. Du kannst Vorschläge bearbeiten oder abwählen. Freie Antworten werden später mit der Musterlösung selbst bewertet.</p><p class="small">'+esc(notes.join(' | '))+'</p><form id="draft-form">'+drafts.map((q,i)=>'<fieldset style="margin:18px 0;border:1px solid var(--line);border-radius:12px;padding:16px"><legend>'+esc(q.questionKind||'Importierte Frage')+'</legend><label><span><input type="checkbox" name="keep-'+i+'" checked style="width:auto"> Diese Frage übernehmen</span></label><label>Frage<textarea name="prompt-'+i+'" rows="2" maxlength="1200">'+esc(q.prompt)+'</textarea></label><label>Musterlösung<textarea name="answer-'+i+'" rows="3" maxlength="4000">'+esc(q.answer)+'</textarea></label><details><summary>Textquelle: '+esc(q.sourceName)+(q.sourcePage?' · Seite '+q.sourcePage:'')+'</summary><p>'+esc(q.evidence||q.answer)+'</p></details></fieldset>').join('')+'<p role="status" id="draft-status"></p><div class="actions"><button type="submit">Ausgewählte Fragen speichern</button><button type="button" class="quiet" id="draft-cancel">Abbrechen</button></div></form>';
+  document.querySelector('#app').append(panel);
+  panel.querySelector('#draft-cancel').onclick=()=>panel.remove();
+  panel.querySelector('form').onsubmit=e=>{
+    e.preventDefault();const data=new FormData(e.currentTarget),selected=[];
+    for(let i=0;i<drafts.length;i++){
+      if(!data.has('keep-'+i))continue;
+      const prompt=String(data.get('prompt-'+i)||'').trim(),answer=String(data.get('answer-'+i)||'').trim();
+      if(prompt.length<8||answer.length<2){panel.querySelector('#draft-status').textContent='Bitte ergänze Frage und Musterlösung oder wähle den Vorschlag ab.';return;}
+      const q={...drafts[i],prompt,answer};
+      if(q.type==='choice'&&!q.options.includes(answer)){panel.querySelector('#draft-status').textContent='Bei Auswahlfragen muss die Lösung einer vorhandenen Antwortoption entsprechen.';return;}
+      if(!state.custom.some(x=>x.setId===set.id&&norm(x.prompt)===norm(prompt)&&norm(x.answer)===norm(answer))&&!selected.some(x=>norm(x.prompt)===norm(prompt)&&norm(x.answer)===norm(answer)))selected.push(q);
     }
-    state.custom.push(...added);state.sources.push({id:id('src'),name:file.name,subject:set.subject,setId:set.id,cards:added.length,addedAt:Date.now()});count++;cards+=added.length;
-  }catch(e){notes.push(file.name+': '+e.message)}
-  save();message=count+' Datei(en) eingelesen · '+cards+' neue Karten/Fragen.'+(notes.length?' Hinweise: '+notes.join(' | '):'');render();
+    if(!setById(set.id)){panel.querySelector('#draft-status').textContent='Das Lernset existiert nicht mehr.';return;}
+    if(!selected.length){panel.querySelector('#draft-status').textContent='Keine neuen Fragen ausgewählt. Identische Fragen sind bereits im Lernset vorhanden.';return;}
+    const ids=new Set(state.custom.map(q=>q.id));for(const q of selected){if(ids.has(q.id))q.id=id('card');ids.add(q.id);}
+    state.custom.push(...selected);
+    for(const file of new Set(selected.map(q=>q.sourceName)))state.sources.push({id:id('src'),name:file,subject:set.subject,setId:set.id,cards:selected.filter(q=>q.sourceName===file).length,addedAt:Date.now()});
+    save();message=selected.length+' geprüfte Fragen gespeichert.';render();
+  };
+  panel.scrollIntoView({behavior:'smooth'});
 }
-function cleanImportedText(text){
-  const raw=String(text||'')
-    .replace(/\u0000/g,' ')
-    .replace(/\u00ad/g,'')
-    .replace(/\r\n?/g,'\n')
-    .replace(/([A-Za-zÄÖÜäöüß])-\n([A-Za-zÄÖÜäöüß])/g,'$1$2')
-    .replace(/[ \t]+/g,' ')
-    .replace(/\n[ \t]+/g,'\n')
-    .trim();
-  if(!raw)return'';
-
-  const lines=raw.split('\n').map(x=>x.trim());
-  const counts=new Map();
-  lines.filter(Boolean).forEach(line=>{
-    const key=line.toLowerCase().replace(/\d+/g,'#').replace(/\s+/g,' ').trim();
-    if(line.length<=120)counts.set(key,(counts.get(key)||0)+1);
-  });
-
-  const noise=/^(?:seite\s*\d+(?:\s*(?:von|\/)\s*\d+)?|\d+\s*(?:\/|von)\s*\d+|www\.\S+|https?:\/\/\S+|©.*|copyright.*|alle rechte vorbehalten.*)$/i;
-  const kept=[];
-  for(const line of lines){
-    if(!line){
-      if(kept.length&&kept[kept.length-1]!=='')kept.push('');
-      continue;
-    }
-    const key=line.toLowerCase().replace(/\d+/g,'#').replace(/\s+/g,' ').trim();
-    if(noise.test(line))continue;
-    if((counts.get(key)||0)>=3&&line.length<90)continue;
-    if(!/[A-Za-zÄÖÜäöüß]/.test(line))continue;
-    kept.push(line);
-  }
-  return kept.join('\n').replace(/\n{3,}/g,'\n\n').trim();
-}
-function contentQuality(text){
-  const t=String(text||'').trim(),words=t.match(/[A-Za-zÄÖÜäöüß0-9][A-Za-zÄÖÜäöüß0-9+.#/%-]*/g)||[];
-  if(t.length<35||words.length<6)return 0;
-  let score=Math.min(4,Math.floor(words.length/8));
-  if(/[.!?:;]/.test(t))score++;
-  if(/\b(?:ist|sind|bedeutet|bezeichnet|besteht|dient|ermöglicht|verwendet|beschreibt|funktioniert|berechnet|unterscheidet|vorteil|nachteil|aufgabe|ziel|verfahren|protokoll|netzwerk|system|daten|speicher|sicherheit)\b/i.test(t))score+=2;
-  if((t.match(/[^\w\sÄÖÜäöüß.,;:!?()/%+&#-]/g)||[]).length>Math.max(8,t.length*.08))score-=3;
-  if(/(?:https?:\/\/|www\.|@[\w.-]+\.[a-z]{2,})/i.test(t))score-=2;
-  return score;
-}
-function keyTerms(text,set){
-  const stop=new Set(('Der Die Das Den Dem Des Ein Eine Einer Eines Einen Einem Und Oder Aber Auch Als Bei Beim Bis Dass Denn Diese Dieser Dieses Diesen Diesem Durch Für Gegen Hat Haben Ist Sind Im In Ins Mit Nach Nicht Noch Nur Ohne Sehr Sich Sie So Über Um Und Unter Vom Von Vor Was Welche Welcher Welches Wie Wird Werden Wo Zu Zum Zur Sowie Kann Können Muss Müssen Soll Sollen').toLowerCase().split(' '));
-  const tokens=String(text||'').match(/\b(?:[A-ZÄÖÜ][A-Za-zÄÖÜäöüß0-9+#./-]{2,}|[A-Z]{2,}[A-Z0-9+#./-]*)\b/g)||[];
-  const context=(String(set.subject||'')+' '+String(set.name||'')).toLowerCase();
-  const out=[];
-  for(const token of tokens){
-    const clean=token.replace(/^[\d.]+/,'').replace(/[.,;:!?]+$/,'');
-    const low=clean.toLowerCase();
-    if(clean.length<3||stop.has(low)||/^\d+$/.test(clean))continue;
-    if(context.includes(low)&&clean.length<5)continue;
-    if(!out.some(x=>x.toLowerCase()===low))out.push(clean);
-    if(out.length===3)break;
-  }
-  return out;
-}
-function makeStudyCard(chunk,set,file,i){
-  const text=chunk.replace(/\s+/g,' ').trim();
-  if(contentQuality(text)<2)return null;
-
-  const qa=text.match(/^(?:frage|aufgabe)\s*[:.-]?\s*(.{8,260}?[?])\s*(?:antwort|lösung)\s*[:.-]?\s*(.{12,700})$/i);
-  if(qa)return{prompt:qa[1].trim(),answer:qa[2].trim()};
-
-  const question=text.match(/^(.{8,260}\?)\s+(.{18,700})$/);
-  if(question&&contentQuality(question[2])>=1)return{prompt:question[1].trim(),answer:question[2].trim()};
-
-  const definition=text.match(/^(.{2,90}?)\s+(?:ist|sind|bedeutet|bezeichnet|beschreibt)\s+(.{15,700})$/i);
-  if(definition){
-    const term=definition[1].replace(/^[\d.)\s-]+/,'').trim();
-    if(term.length>=2&&term.length<=90)return{prompt:'Erkläre „'+term+'“ in eigenen Worten.',answer:text};
-  }
-
-  const terms=keyTerms(text,set);
-  if(terms.length>=2)return{prompt:'Erkläre den Zusammenhang zwischen „'+terms[0]+'“ und „'+terms[1]+'“.',answer:text};
-  if(terms.length===1)return{prompt:'Was ist bei „'+terms[0]+'“ wichtig?',answer:text};
-
-  return null;
-}
-function cardsFromText(text,set,file){
-  const cleaned=cleanImportedText(text);
-  if(cleaned.length<40)return[];
-
-  const rawBlocks=cleaned
-    .split(/\n{2,}|(?=\n\s*(?:\d+(?:\.\d+)*[.)]?\s+|(?:frage|aufgabe|lösung|antwort)\s*[:.-]))/i)
-    .map(x=>x.replace(/\n+/g,' ').replace(/\s+/g,' ').trim())
-    .filter(Boolean);
-
-  let blocks=rawBlocks;
-  if(blocks.length<2){
-    const sentences=cleaned.replace(/\n+/g,' ').match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[];
-    blocks=[];
-    let current='';
-    for(const sentence of sentences){
-      const s=sentence.trim();
-      if(!s)continue;
-      if((current+' '+s).trim().length>520){
-        if(current)blocks.push(current.trim());
-        current=s;
-      }else current=(current+' '+s).trim();
-    }
-    if(current)blocks.push(current);
-  }
-
-  const unique=[],seen=new Set();
-  for(const block of blocks){
-    const b=block.replace(/^[•▪●◦]\s*/,'').trim();
-    const key=b.toLowerCase().replace(/\s+/g,' ');
-    if(b.length<35||b.length>900||seen.has(key)||contentQuality(b)<2)continue;
-    seen.add(key);unique.push(b);
-    if(unique.length>=60)break;
-  }
-
-  const cards=[];
-  unique.forEach((chunk,i)=>{
-    const made=makeStudyCard(chunk,set,file,i);
-    if(!made)return;
-    cards.push({
-      id:id('card')+'-'+i,
-      subject:set.subject,
-      setId:set.id,
-      sourceName:file,
-      topic:set.name,
-      prompt:made.prompt,
-      answer:made.answer,
-      explanation:'Direkt aus „'+file+'“ erstellt. Die Frage basiert auf demselben Textabschnitt wie die hinterlegte Lösung.',
-      steps:[],
-      type:'selfcheck',
-      options:[],
-      aliases:[],
-      points:1
-    });
-  });
-  return cards.slice(0,40);
-}
-
 let pdfPromise;
 function pdfLib(){
   if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
@@ -553,38 +453,27 @@ function pdfLib(){
   });
   return pdfPromise;
 }
-async function pdfText(file){
+async function pdfPages(file){
   const lib=await pdfLib();
   const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
   const pages=[];
-  for(let i=1;i<=pdf.numPages;i++){
-    const page=await pdf.getPage(i),content=await page.getTextContent();
-    const lines=[],current=[];
-    let lastY=null;
-    for(const item of content.items){
-      if(!item||typeof item.str!=='string'||!item.str.trim())continue;
-      const y=Array.isArray(item.transform)?Number(item.transform[5]):NaN;
-      const newLine=item.hasEOL||(Number.isFinite(y)&&lastY!==null&&Math.abs(y-lastY)>4);
-      if(newLine&&current.length){
-        const gap=Number.isFinite(y)&&lastY!==null?Math.abs(y-lastY):0;
-        lines.push(current.join(' ').replace(/\s+/g,' ').trim());
-        if(gap>18)lines.push('');
-        current.length=0;
+  try{
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i),content=await page.getTextContent();
+      let text='',lastY=null,lastX=null;
+      for(const item of content.items){
+        if(typeof item.str!=='string')continue;
+        const y=item.transform?.[5],x=item.transform?.[4];
+        if(lastY!==null&&y!==undefined&&Math.abs(y-lastY)>3)text+=Math.abs(y-lastY)>22?'\n\n':'\n';
+        else if(lastX!==null)text+=' ';
+        text+=item.str;
+        if(item.hasEOL){text+='\n';lastY=null;lastX=null;}else{lastY=y;lastX=x;}
       }
-      current.push(item.str.trim());
-      if(Number.isFinite(y))lastY=y;
-      if(item.hasEOL&&current.length){
-        lines.push(current.join(' ').replace(/\s+/g,' ').trim());
-        current.length=0;
-        lastY=null;
-      }
+      pages.push({page:i,text});
     }
-    if(current.length)lines.push(current.join(' ').replace(/\s+/g,' ').trim());
-    pages.push(lines.filter(Boolean).join('\n'));
-  }
-  return pages.join('\n\n');
+    return pages;
+  }finally{await pdf.destroy();}
 }
-
 function validate(input,allowEmpty=true){
   if(!Array.isArray(input)||(!allowEmpty&&!input.length)||input.length>2000)throw Error('Erwartet wird eine Liste mit 1 bis 2.000 Aufgaben.');
   const existing=new Set(questions().map(q=>q.id)),local=new Set();
@@ -701,3 +590,4 @@ window.addEventListener('hashchange',()=>{session=null;game=null;render()});
 document.querySelector('#theme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';save();render()};
 setInterval(refreshMotivation,60*1000);
 render();
+
