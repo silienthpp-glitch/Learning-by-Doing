@@ -14,15 +14,15 @@
       /[a-zäöüß]/i.test(term) && !/[?!:;]/.test(term) && !isNoise(term) &&
       !/^(?:er|sie|es|dies|diese|dieser|dieses|das|dabei|hier|dort|man|wir|ich|du)$/i.test(term);
   }
-  function analyze(input){
+  function analyze(input, mode="mixed"){
     const pages=Array.isArray(input)?input:[{page:null,text:String(input||'')}];
     const cards=[],seen=new Set();let skipped=0;
-    function add(prompt,answer,evidence,page,kind){
+    function add(prompt,answer,evidence,page,kind,concept=null){
       answer=flat(answer);prompt=flat(prompt);
       if(answer.length<12||answer.length>900||isNoise(answer))return;
       const key=prompt.toLocaleLowerCase('de')+'|'+answer.toLocaleLowerCase('de');
       if(seen.has(key))return;seen.add(key);
-      cards.push({prompt,answer,evidence:flat(evidence),page,kind});
+      cards.push({prompt,answer,evidence:flat(evidence),page,kind,concept});
     }
     for(const page of pages){
       const text=clean(page.text);
@@ -53,12 +53,31 @@
           }else{
             prompt='Welche Funktion erfüllt „'+term+'“ laut Text?';kind='Funktion erklären';
           }
-          add(prompt,sentence,sentence,page.page,kind);
+          add(prompt,sentence,sentence,page.page,kind,{term,description:flat(match[3]),verb});
         }
         if(cards.length===before)skipped++;
       }
     }
-    return {cards:cards.slice(0,80),skipped,truncated:cards.length>80};
+    return {cards:makeChoices(cards.slice(0,80),mode),skipped,truncated:cards.length>80};
+  }
+  function makeChoices(cards,mode){
+    let eligible=0;
+    const normalized=s=>flat(s).toLocaleLowerCase('de').replace(/[.!?]+$/,'');
+    return cards.map(card=>{
+      if(mode==='selfcheck'||!card.concept)return card;
+      const {term,description,verb}=card.concept;
+      const peers=cards.filter(c=>c.concept&&c.kind===card.kind&&c.concept.verb===verb);
+      // Ambiguous definitions and answer-revealing passages stay open questions.
+      if(peers.some(c=>normalized(c.concept.term)!==normalized(term)&&normalized(c.concept.description)===normalized(description)))return card;
+      if(normalized(description).includes(normalized(term)))return card;
+      const alternatives=[...new Set(peers.map(c=>c.concept.term))].filter(t=>normalized(t)!==normalized(term)&&!normalized(description).includes(normalized(t)));
+      const distinct=alternatives.filter((t,i)=>alternatives.findIndex(x=>normalized(x)===normalized(t))===i);
+      if(distinct.length<2)return card;
+      if(mode==='mixed'&&eligible++%2===1)return card;
+      const options=[term,...distinct.slice(0,3)];
+      for(let i=options.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[options[i],options[j]]=[options[j],options[i]];}
+      return {...card,prompt:'Welcher Begriff wird im Text so beschrieben? „'+description+'“',answer:term,options,type:'choice',kind:'Multiple Choice · eine richtige Antwort',explanation:'Im Quelltext wird diese Beschreibung ausdrücklich „'+term+'“ zugeordnet. '+card.evidence};
+    });
   }
   function legacyNoise(q){
     return q.type==='selfcheck' && /^(?:Erkläre den Zusammenhang|Was ist bei|Was solltest du zu|Erkläre „)/.test(q.prompt||'') &&

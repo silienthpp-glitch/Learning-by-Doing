@@ -33,3 +33,19 @@ test('Bekannte alte Kopfzeilenfragen werden ausgeblendet',()=>{
  assert.equal(api.legacyNoise({type:'selfcheck',prompt:'Erkläre den Zusammenhang zwischen „Fachinformatiker/in“ und „Klasse“.'}),true);
  assert.equal(api.legacyNoise({type:'selfcheck',prompt:'Erkläre den Zusammenhang zwischen „IP-Adresse“ und „Subnetzmaske“.'}),false);
 });
+const definitions='DNS ist ein Dienst zur Auflösung von Domainnamen.\n\nDHCP ist ein Dienst zur automatischen Vergabe der IP-Konfiguration.\n\nHTTP ist ein Protokoll zur Übertragung von Webseiten.';
+test('Auswahlfragen haben eindeutige Optionen und eine enthaltene Lösung',()=>{
+ const cards=api.analyze(definitions,'choice').cards;
+ assert.equal(cards.length,3);
+ for(const q of cards){assert.equal(q.type,'choice');assert.equal(q.options.length,3);assert.equal(new Set(q.options).size,3);assert.equal(q.options.filter(x=>x===q.answer).length,1);assert.ok(!q.prompt.includes(q.answer));}
+});
+test('Gemischte Vorbereitung enthält beide Fragetypen',()=>{
+ const cards=api.analyze(definitions).cards;
+ assert.ok(cards.some(q=>q.type==='choice'));assert.ok(cards.some(q=>q.type!=='choice'));
+});
+test('Offener Modus erzeugt keine Auswahlfragen',()=>assert.ok(api.analyze(definitions,'selfcheck').cards.every(q=>q.type!=='choice')));
+test('Zu wenige Alternativen bleiben offene Fragen',()=>assert.ok(api.analyze(definitions.split('\n\n').slice(0,2).join('\n\n'),'choice').cards.every(q=>q.type!=='choice')));
+test('Gleichlautende Beschreibungen werden nicht als eindeutige Auswahl bewertet',()=>{
+ const t='DNS ist ein Dienst zur Auflösung von Domainnamen.\n\nNamensauflösung ist ein Dienst zur Auflösung von Domainnamen.\n\nDHCP ist ein Dienst zur automatischen Vergabe der IP-Konfiguration.';
+ assert.ok(api.analyze(t,'choice').cards.filter(q=>q.evidence.includes('Auflösung')).every(q=>q.type!=='choice'));
+});
