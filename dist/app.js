@@ -397,41 +397,137 @@ async function importMaterials(form){
   }catch(e){notes.push(file.name+': '+e.message)}
   save();message=count+' Datei(en) eingelesen · '+cards+' neue Karten/Fragen.'+(notes.length?' Hinweise: '+notes.join(' | '):'');render();
 }
-function cardsFromText(text,set,file){
-  const cleaned=String(text||'')
+function cleanImportedText(text){
+  const raw=String(text||'')
     .replace(/\u0000/g,' ')
-    .replace(/[ \t]+/g,' ')
+    .replace(/\u00ad/g,'')
     .replace(/\r\n?/g,'\n')
-    .replace(/\n{3,}/g,'\n\n')
+    .replace(/([A-Za-zÄÖÜäöüß])-\n([A-Za-zÄÖÜäöüß])/g,'$1$2')
+    .replace(/[ \t]+/g,' ')
+    .replace(/\n[ \t]+/g,'\n')
     .trim();
+  if(!raw)return'';
+
+  const lines=raw.split('\n').map(x=>x.trim()).filter(Boolean);
+  const counts=new Map();
+  lines.forEach(line=>{
+    const key=line.toLowerCase().replace(/\d+/g,'#').replace(/\s+/g,' ').trim();
+    if(line.length<=120)counts.set(key,(counts.get(key)||0)+1);
+  });
+
+  const noise=/^(?:seite\s*\d+(?:\s*(?:von|\/)\s*\d+)?|\d+\s*(?:\/|von)\s*\d+|www\.\S+|https?:\/\/\S+|©.*|copyright.*|alle rechte vorbehalten.*)$/i;
+  return lines.filter(line=>{
+    const key=line.toLowerCase().replace(/\d+/g,'#').replace(/\s+/g,' ').trim();
+    if(noise.test(line))return false;
+    if((counts.get(key)||0)>=3&&line.length<90)return false;
+    if(!/[A-Za-zÄÖÜäöüß]/.test(line))return false;
+    return true;
+  }).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+function contentQuality(text){
+  const t=String(text||'').trim(),words=t.match(/[A-Za-zÄÖÜäöüß0-9][A-Za-zÄÖÜäöüß0-9+.#/%-]*/g)||[];
+  if(t.length<35||words.length<6)return 0;
+  let score=Math.min(4,Math.floor(words.length/8));
+  if(/[.!?:;]/.test(t))score++;
+  if(/\b(?:ist|sind|bedeutet|bezeichnet|besteht|dient|ermöglicht|verwendet|beschreibt|funktioniert|berechnet|unterscheidet|vorteil|nachteil|aufgabe|ziel|verfahren|protokoll|netzwerk|system|daten|speicher|sicherheit)\b/i.test(t))score+=2;
+  if((t.match(/[^\w\sÄÖÜäöüß.,;:!?()/%+&#-]/g)||[]).length>Math.max(8,t.length*.08))score-=3;
+  if(/(?:https?:\/\/|www\.|@[\w.-]+\.[a-z]{2,})/i.test(t))score-=2;
+  return score;
+}
+function keyTerms(text,set){
+  const stop=new Set(('Der Die Das Den Dem Des Ein Eine Einer Eines Einen Einem Und Oder Aber Auch Als Bei Beim Bis Dass Denn Diese Dieser Dieses Diesen Diesem Durch Für Gegen Hat Haben Ist Sind Im In Ins Mit Nach Nicht Noch Nur Ohne Sehr Sich Sie So Über Um Und Unter Vom Von Vor Was Welche Welcher Welches Wie Wird Werden Wo Zu Zum Zur Sowie Kann Können Muss Müssen Soll Sollen').toLowerCase().split(' '));
+  const tokens=String(text||'').match(/\b(?:[A-ZÄÖÜ][A-Za-zÄÖÜäöüß0-9+#./-]{2,}|[A-Z]{2,}[A-Z0-9+#./-]*)\b/g)||[];
+  const context=(String(set.subject||'')+' '+String(set.name||'')).toLowerCase();
+  const out=[];
+  for(const token of tokens){
+    const clean=token.replace(/^[\d.]+/,'').replace(/[.,;:!?]+$/,'');
+    const low=clean.toLowerCase();
+    if(clean.length<3||stop.has(low)||/^\d+$/.test(clean))continue;
+    if(context.includes(low)&&clean.length<5)continue;
+    if(!out.some(x=>x.toLowerCase()===low))out.push(clean);
+    if(out.length===3)break;
+  }
+  return out;
+}
+function makeStudyCard(chunk,set,file,i){
+  const text=chunk.replace(/\s+/g,' ').trim();
+  if(contentQuality(text)<2)return null;
+
+  const qa=text.match(/^(?:frage|aufgabe)\s*[:.-]?\s*(.{8,260}?[?])\s*(?:antwort|lösung)\s*[:.-]?\s*(.{12,700})$/i);
+  if(qa)return{prompt:qa[1].trim(),answer:qa[2].trim()};
+
+  const question=text.match(/^(.{8,260}\?)\s+(.{18,700})$/);
+  if(question&&contentQuality(question[2])>=1)return{prompt:question[1].trim(),answer:question[2].trim()};
+
+  const definition=text.match(/^(.{2,90}?)\s+(?:ist|sind|bedeutet|bezeichnet|beschreibt)\s+(.{15,700})$/i);
+  if(definition){
+    const term=definition[1].replace(/^[\d.)\s-]+/,'').trim();
+    if(term.length>=2&&term.length<=90)return{prompt:'Erkläre „'+term+'“ in eigenen Worten.',answer:text};
+  }
+
+  const terms=keyTerms(text,set);
+  if(terms.length>=2)return{prompt:'Erkläre den Zusammenhang zwischen „'+terms[0]+'“ und „'+terms[1]+'“.',answer:text};
+  if(terms.length===1)return{prompt:'Was ist bei „'+terms[0]+'“ wichtig?',answer:text};
+
+  return null;
+}
+function cardsFromText(text,set,file){
+  const cleaned=cleanImportedText(text);
   if(cleaned.length<40)return[];
 
-  let chunks=cleaned.split(/\n{2,}/);
-  if(chunks.length===1&&cleaned.length>500){
-    chunks=(cleaned.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[cleaned]);
-  }
-  chunks=[...new Set(chunks.map(x=>x.replace(/\s+/g,' ').trim()).filter(x=>x.length>=30&&x.length<=800))].slice(0,40);
+  const rawBlocks=cleaned
+    .split(/\n{2,}|(?=\n\s*(?:\d+(?:\.\d+)*[.)]?\s+|(?:frage|aufgabe|lösung|antwort)\s*[:.-]))/i)
+    .map(x=>x.replace(/\n+/g,' ').replace(/\s+/g,' ').trim())
+    .filter(Boolean);
 
-  return chunks.map((chunk,i)=>{
-    const m=chunk.match(/^(.{2,80}?)(?:\s+ist\s+|\s+bedeutet\s+|\s+bezeichnet\s+|:\s+)(.{10,700})$/i);
-    const lead=chunk.split(/[,:;–-]/)[0].trim().slice(0,90);
-    return{
+  let blocks=rawBlocks;
+  if(blocks.length<2){
+    const sentences=cleaned.replace(/\n+/g,' ').match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[];
+    blocks=[];
+    let current='';
+    for(const sentence of sentences){
+      const s=sentence.trim();
+      if(!s)continue;
+      if((current+' '+s).trim().length>520){
+        if(current)blocks.push(current.trim());
+        current=s;
+      }else current=(current+' '+s).trim();
+    }
+    if(current)blocks.push(current);
+  }
+
+  const unique=[],seen=new Set();
+  for(const block of blocks){
+    const b=block.replace(/^[•▪●◦]\s*/,'').trim();
+    const key=b.toLowerCase().replace(/\s+/g,' ');
+    if(b.length<35||b.length>900||seen.has(key)||contentQuality(b)<2)continue;
+    seen.add(key);unique.push(b);
+    if(unique.length>=60)break;
+  }
+
+  const cards=[];
+  unique.forEach((chunk,i)=>{
+    const made=makeStudyCard(chunk,set,file,i);
+    if(!made)return;
+    cards.push({
       id:id('card')+'-'+i,
       subject:set.subject,
       setId:set.id,
       sourceName:file,
       topic:set.name,
-      prompt:m?'Erkläre „'+m[1].trim()+'“ in eigenen Worten.':'Was solltest du zu „'+lead+(lead.length>=90?'…':'')+'“ wissen?',
-      answer:m?m[2].trim():chunk,
-      explanation:'Automatisch aus „'+file+'“ erstellt. Vergleiche deine Erklärung mit dem Originaltext.',
+      prompt:made.prompt,
+      answer:made.answer,
+      explanation:'Direkt aus „'+file+'“ erstellt. Die Frage basiert auf demselben Textabschnitt wie die hinterlegte Lösung.',
       steps:[],
       type:'selfcheck',
       options:[],
       aliases:[],
       points:1
-    };
+    });
   });
+  return cards.slice(0,40);
 }
+
 let pdfPromise;
 function pdfLib(){
   if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
@@ -454,13 +550,33 @@ function pdfLib(){
 async function pdfText(file){
   const lib=await pdfLib();
   const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
-  const out=[];
+  const pages=[];
   for(let i=1;i<=pdf.numPages;i++){
     const page=await pdf.getPage(i),content=await page.getTextContent();
-    out.push(content.items.map(x=>x.str).join(' '));
+    const lines=[],current=[];
+    let lastY=null;
+    for(const item of content.items){
+      if(!item||typeof item.str!=='string'||!item.str.trim())continue;
+      const y=Array.isArray(item.transform)?Number(item.transform[5]):NaN;
+      const newLine=item.hasEOL||(Number.isFinite(y)&&lastY!==null&&Math.abs(y-lastY)>4);
+      if(newLine&&current.length){
+        lines.push(current.join(' ').replace(/\s+/g,' ').trim());
+        current.length=0;
+      }
+      current.push(item.str.trim());
+      if(Number.isFinite(y))lastY=y;
+      if(item.hasEOL&&current.length){
+        lines.push(current.join(' ').replace(/\s+/g,' ').trim());
+        current.length=0;
+        lastY=null;
+      }
+    }
+    if(current.length)lines.push(current.join(' ').replace(/\s+/g,' ').trim());
+    pages.push(lines.filter(Boolean).join('\n'));
   }
-  return out.join('\n\n');
+  return pages.join('\n\n');
 }
+
 function validate(input,allowEmpty=true){
   if(!Array.isArray(input)||(!allowEmpty&&!input.length)||input.length>2000)throw Error('Erwartet wird eine Liste mit 1 bis 2.000 Aufgaben.');
   const existing=new Set(questions().map(q=>q.id)),local=new Set();
