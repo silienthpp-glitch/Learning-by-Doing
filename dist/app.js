@@ -408,21 +408,27 @@ function cleanImportedText(text){
     .trim();
   if(!raw)return'';
 
-  const lines=raw.split('\n').map(x=>x.trim()).filter(Boolean);
+  const lines=raw.split('\n').map(x=>x.trim());
   const counts=new Map();
-  lines.forEach(line=>{
+  lines.filter(Boolean).forEach(line=>{
     const key=line.toLowerCase().replace(/\d+/g,'#').replace(/\s+/g,' ').trim();
     if(line.length<=120)counts.set(key,(counts.get(key)||0)+1);
   });
 
   const noise=/^(?:seite\s*\d+(?:\s*(?:von|\/)\s*\d+)?|\d+\s*(?:\/|von)\s*\d+|www\.\S+|https?:\/\/\S+|©.*|copyright.*|alle rechte vorbehalten.*)$/i;
-  return lines.filter(line=>{
+  const kept=[];
+  for(const line of lines){
+    if(!line){
+      if(kept.length&&kept[kept.length-1]!=='')kept.push('');
+      continue;
+    }
     const key=line.toLowerCase().replace(/\d+/g,'#').replace(/\s+/g,' ').trim();
-    if(noise.test(line))return false;
-    if((counts.get(key)||0)>=3&&line.length<90)return false;
-    if(!/[A-Za-zÄÖÜäöüß]/.test(line))return false;
-    return true;
-  }).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+    if(noise.test(line))continue;
+    if((counts.get(key)||0)>=3&&line.length<90)continue;
+    if(!/[A-Za-zÄÖÜäöüß]/.test(line))continue;
+    kept.push(line);
+  }
+  return kept.join('\n').replace(/\n{3,}/g,'\n\n').trim();
 }
 function contentQuality(text){
   const t=String(text||'').trim(),words=t.match(/[A-Za-zÄÖÜäöüß0-9][A-Za-zÄÖÜäöüß0-9+.#/%-]*/g)||[];
@@ -560,7 +566,9 @@ async function pdfText(file){
       const y=Array.isArray(item.transform)?Number(item.transform[5]):NaN;
       const newLine=item.hasEOL||(Number.isFinite(y)&&lastY!==null&&Math.abs(y-lastY)>4);
       if(newLine&&current.length){
+        const gap=Number.isFinite(y)&&lastY!==null?Math.abs(y-lastY):0;
         lines.push(current.join(' ').replace(/\s+/g,' ').trim());
+        if(gap>18)lines.push('');
         current.length=0;
       }
       current.push(item.str.trim());
