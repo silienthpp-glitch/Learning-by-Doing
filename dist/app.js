@@ -64,21 +64,28 @@ function learningInsights(){
   return{strengths,weaknesses,last,lastQ};
 }
 function materialContext(subject,topic,setId=''){
+  const term=String(topic||'').trim().toLowerCase(),parts=[],seen=new Set();
+  let sources=(state.sources||[]);
+  if(setId)sources=sources.filter(s=>s.setId===setId);
+  else if(subject)sources=sources.filter(s=>(s.subject||'').toLowerCase()===subject.toLowerCase());
+  for(const s of sources){
+    const excerpt=String(s.excerpt||'').replace(/\s+/g,' ').trim();
+    if(excerpt.length<40)continue;
+    const key=('source|'+s.name+'|'+excerpt.slice(0,300)).toLowerCase();
+    if(seen.has(key))continue;seen.add(key);parts.push('['+(s.name||'Unterlage')+'] '+excerpt);
+    if(parts.join('\n\n').length>22000)break;
+  }
+
   let list=(state.custom||[]).filter(q=>!q.aiGenerated);
   if(setId)list=list.filter(q=>q.setId===setId);
   else if(subject)list=list.filter(q=>(q.subject||'').toLowerCase()===subject.toLowerCase());
-  const term=String(topic||'').trim().toLowerCase();
   if(term){
     const matching=list.filter(q=>[q.topic,q.prompt,q.answer,q.explanation,q.sourceName].some(v=>String(v||'').toLowerCase().includes(term)));
     if(matching.length>=2)list=matching;
   }
-  if(!list.length&&subject){
-    list=questions().filter(q=>!q.aiGenerated&&(q.subject||'').toLowerCase()===subject.toLowerCase());
-  }
-  const seen=new Set(),parts=[];
+  if(!list.length&&subject)list=questions().filter(q=>!q.aiGenerated&&(q.subject||'').toLowerCase()===subject.toLowerCase());
   for(const q of list){
-    const source=q.sourceName||setById(q.setId)?.name||'Unterlage';
-    const text=[q.answer,q.explanation].filter(Boolean).join(' ');
+    const source=q.sourceName||setById(q.setId)?.name||'Unterlage',text=[q.prompt,q.answer,q.explanation].filter(Boolean).join(' ');
     const key=(source+'|'+text).toLowerCase().replace(/\s+/g,' ').slice(0,500);
     if(text.length<20||seen.has(key))continue;
     seen.add(key);parts.push('['+source+'] '+text.replace(/\s+/g,' ').trim());
@@ -86,6 +93,7 @@ function materialContext(subject,topic,setId=''){
   }
   return parts.join('\n\n').slice(0,30000);
 }
+
 function normalizeAiQuestions(items,set,topic,meta={}){
   const allowed=new Set(['choice','multichoice','text','truefalse','number','scenario']);
   return (Array.isArray(items)?items:[]).map((q,i)=>{
@@ -591,18 +599,20 @@ async function importMaterials(form){
   document.querySelector('#material-status').textContent='Dateien werden eingelesen …';let count=0,cards=0;
   for(const file of files)try{
     if(file.size>15000000)throw Error('Datei größer als 15 MB.');
-    let added;
+    let added,sourceExcerpt='';
     if(file.name.toLowerCase().endsWith('.json')){
       added=validate(JSON.parse(await file.text()),false).map(q=>({...q,subject:q.subject||set.subject,setId:set.id,sourceName:file.name}));
     }else{
-      const text=file.name.toLowerCase().endsWith('.pdf')?await pdfText(file):await file.text();added=cardsFromText(text,set,file.name);
+      const text=file.name.toLowerCase().endsWith('.pdf')?await pdfText(file):await file.text();
+      sourceExcerpt=cleanImportedText(text).slice(0,12000);
+      added=cardsFromText(text,set,file.name);
       if(!added.length)throw Error('Keine sinnvollen Lernkarten gefunden.');
-      added.forEach(q=>q.sourceExcerpt=String(text||'').slice(0,12000));
     }
-    state.custom.push(...added);state.sources.push({id:id('src'),name:file.name,subject:set.subject,setId:set.id,cards:added.length,addedAt:Date.now()});count++;cards+=added.length;
+    state.custom.push(...added);state.sources.push({id:id('src'),name:file.name,subject:set.subject,setId:set.id,cards:added.length,excerpt:sourceExcerpt,addedAt:Date.now()});count++;cards+=added.length;
   }catch(e){notes.push(file.name+': '+e.message)}
   save();message=count+' Datei(en) eingelesen · '+cards+' neue Karten/Fragen.'+(notes.length?' Hinweise: '+notes.join(' | '):'');render();
 }
+
 function cleanImportedText(text){
   const raw=String(text||'')
     .replace(/\u0000/g,' ')
