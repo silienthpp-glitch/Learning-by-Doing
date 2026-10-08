@@ -135,6 +135,30 @@ jobs:
           assert evaluated["rating"] == "correct"
           assert evaluated["score"] == 1
 
+          # OpenAI ist optional: ohne Key muss eine verständliche 400-Antwort kommen,
+          # während Ollama weiterhin funktioniert.
+          try:
+              post_json("/api/ai/generate", {
+                  "provider": "openai",
+                  "subject": "Datenbanken",
+                  "topic": "SQL",
+                  "count": 10,
+                  "context": "SQL SELECT liest Daten aus Tabellen. " * 5,
+              })
+              raise AssertionError("OpenAI request should fail without API key")
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 400
+              error_body = json.loads(exc.read())
+              assert "nicht eingerichtet" in error_body["error"]
+
+          # Verständlicher Offline-Status, wenn Ollama nicht erreichbar ist.
+          old_url = start.OLLAMA_URL
+          start.OLLAMA_URL = "http://127.0.0.1:1"
+          offline = get_json("/api/ai/status")
+          assert offline["ollama"]["reachable"] is False
+          assert "nicht erreichbar" in offline["ollama"]["message"]
+          start.OLLAMA_URL = old_url
+
           app.shutdown()
           fake.shutdown()
           print("Smoke test OK")
