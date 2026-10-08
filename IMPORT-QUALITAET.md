@@ -1,17 +1,7 @@
-# Fragen aus Informationstexten
+# Qualitätsstand des Imports
 
-Unter „Fächer & Lernsets“ ein Lernset auswählen, PDF/TXT/Markdown oder JSON einlesen und die Vorschau prüfen. Frage und Musterlösung können bearbeitet, einzelne Vorschläge abgewählt werden. Erst „Ausgewählte Fragen speichern“ übernimmt die Auswahl. Identische Fragen und Lösungen im selben Lernset werden übersprungen.
+Die frühere regelbasierte Erzeugung wurde im Importablauf ersetzt. Sie war für realistische Klausurfragen nicht zuverlässig genug. Der Quellcode `study-import.js` bleibt für die Regressionstests vorhanden, wird aber nicht mehr für neue Textimporte aufgerufen.
 
-Die lokale Verarbeitung erkennt Definitionen, Funktionen, Bestandteile, Listen und explizite Frage-Antwort-Paare. Sie verwendet keine zufälligen Substantivpaare und sendet Text nicht an einen KI-Dienst. Jeder automatisch erstellte Vorschlag hat einen Originalauszug; PDFs behalten ihre Seitenangabe. Formularköpfe wie Name/Klasse/Datum werden herausgefiltert. Erkennbare alte Kopfzeilenfragen bleiben gespeichert, werden aber nicht mehr zum Lernen angeboten.
+Version 5 verwendet einen ausdrücklich freizugebenden, zweistufigen KI-Entwurf mit strukturierten Aufgaben und Quellenvalidierung. Ohne eingerichtete KI werden keine automatischen Ersatzfragen erzeugt. Fertige JSON-Fragen können weiterhin importiert werden.
 
-Diese Regeln ersetzen keine semantische KI oder fachliche Prüfung. Nicht eindeutig verwertbare Abschnitte werden ausgelassen. Scan-PDFs benötigen vorher OCR. Die Obergrenze beträgt 80 Vorschläge pro Textdatei und 15 MB pro Datei. Freie Antworten werden durch Vergleich mit der Musterlösung selbst bewertet und nicht in eine automatische Richtig/Falsch-Bewertung gezwungen. Solche Fragen sind weiterhin vom automatisch benoteten Prüfungsmodus ausgeschlossen.
-
-Vorhandene Karten lassen sich ohne ihren ursprünglichen Informationstext nicht vollständig neu erstellen. Betroffene Unterlagen erneut einlesen und die Vorschau kontrollieren. Lernfortschritte bleiben erhalten.
-
-Tests: `node --test tests/study-import.test.cjs`
-
-## Multiple Choice
-
-Der Fragentyp kann beim Import gewählt werden: gemischt (Standard), bevorzugt Multiple Choice oder nur offen. Für Auswahlfragen werden mindestens drei unterschiedliche Begriffe derselben erkannten Aussageform im Text benötigt. Die Frage verlangt die Zuordnung einer Textbeschreibung zu einem Begriff. Identische Beschreibungen für mehrere Begriffe und Beschreibungen, die die Lösung verraten, werden nicht umgewandelt. Wenn geeignete Alternativen fehlen, bleibt der Vorschlag offen. Die Antwortreihenfolge wird beim Erzeugen gemischt.
-
-Auswahlfragen haben genau eine richtige Antwort. In der Vorschau können alle Optionen und die richtige Antwort geändert werden; leere oder doppelte Optionen werden abgewiesen. Diese Fragen sind im Lern- und Prüfungsmodus automatisch auswertbar. Die regelbasierte Prüfung kann inhaltliche Mehrdeutigkeit nicht vollständig erkennen; deshalb bitte die Vorschläge anhand des Originaltexts prüfen.
+Vollständiger Ablauf, Einrichtung, Datenverarbeitung und bekannte Grenzen: [LEHRER-AUFGABEN.md](LEHRER-AUFGABEN.md).

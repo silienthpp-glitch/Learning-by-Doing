@@ -9,3 +9,8 @@ learning-by-doing-sicherung*.json
 .env
 .env.*
 !.env.example
+
+# Lokale KI-Einstellungen und private Unterlagen
+ai-config.json
+dist/private-ihk/
+*.zip

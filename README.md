@@ -26,9 +26,11 @@ Unter **Fächer & Lernsets** kannst du mehrere Dateien einem Lernset zuordnen:
 
 ### PDF, TXT und Markdown
 
-Aus Textunterlagen erstellt die App automatisch Lernkarten. Du beantwortest eine Frage zunächst selbst, deckst danach den Originalinhalt auf und wählst **Gewusst** oder **Noch nicht sicher**.
+Textunterlagen werden zunächst lokal ausgelesen. Du wählst die Seiten für einen Themenabschnitt aus. Die neue semantische Fragenerstellung benötigt eine eingerichtete KI (OpenAI API oder lokales Ollama) und deine ausdrückliche Freigabe pro Import. Ohne Einrichtung werden keine Satzschablonen als Ersatzfragen erzeugt.
 
-Eine rein lokale Webseite ohne KI kann nicht zuverlässig entscheiden, ob zwei frei formulierte Antworten inhaltlich gleichbedeutend sind. Deshalb vermeidet die App bei solchen Karten absichtlich eine scheinbar genaue automatische Bewertung.
+Offene Aufgaben enthalten Musterlösung und Punktkriterien. Multiple Choice enthält eine Erklärung zu jeder Antwortoption. Jeder Entwurf wird ein zweites Mal durch die KI geprüft; anschließend prüfst du ihn in der Vorschau. Diese Prüfungen können fachliche Fehler nicht ausschließen. Offene Antworten bewertest du selbst anhand der Kriterien, auch am Ende einer Probeprüfung.
+
+**Einrichtung und Grenzen: [LEHRER-AUFGABEN.md](LEHRER-AUFGABEN.md).** Bereits gespeicherte automatisch erzeugte Fragen werden pausiert, bis du sie überarbeitet und freigegeben hast. Die Daten werden nicht gelöscht.
 
 Für PDFs wird PDF.js beim ersten PDF-Import aus einem CDN geladen. Dafür ist beim ersten PDF-Import eine Internetverbindung nötig. Die ausgewählte PDF-Datei wird dabei nicht zu einem Server hochgeladen, sondern im Browser gelesen. TXT, Markdown, JSON und das normale Lernen funktionieren weiterhin lokal.
 
