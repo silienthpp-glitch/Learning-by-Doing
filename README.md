@@ -117,6 +117,113 @@ Vier Frage-/Antwort-Zuordnungen werden gezeigt. Eine Antwort gehört absichtlich
 
 Die Spiele ergänzen normales Lernen und Prüfungssimulationen, ersetzen sie aber nicht.
 
+## KI-Lernen: kostenlos lokal mit Ollama
+
+Die Plattform kann jetzt aus deinen **bereits importierten Unterlagen** neue, thematisch passende Lernsets erstellen und Antworten bewerten.
+
+Standardmäßig wird **Ollama lokal auf deinem Rechner** verwendet. Dadurch entstehen keine Kosten pro KI-Anfrage.
+
+Empfohlenes Standardmodell:
+
+```sh
+qwen3.5:4b
+```
+
+Wenn bereits ein anderes unterstütztes Ollama-Modell installiert ist, kann der lokale Server dieses automatisch verwenden.
+
+### Ollama auf macOS vorbereiten
+
+1. Ollama installieren bzw. die Ollama-App öffnen.
+2. Terminal öffnen.
+3. Modell einmalig herunterladen:
+
+```sh
+ollama pull qwen3.5:4b
+```
+
+4. Falls Ollama nicht automatisch läuft:
+
+```sh
+ollama serve
+```
+
+5. Prüfen:
+
+```sh
+ollama list
+```
+
+In der Lernplattform unter **Einstellungen** siehst du anschließend:
+
+- 🟢 Lokale KI verbunden
+- 🔴 Lokale KI nicht erreichbar
+- 🟢 OpenAI verfügbar
+- ⚪ OpenAI nicht eingerichtet
+
+## Optional: OpenAI API
+
+OpenAI ist **nicht erforderlich**. Die Plattform funktioniert vollständig mit Ollama.
+
+Wenn du OpenAI ausdrücklich verwenden möchtest, kopiere im Projektordner die Beispielkonfiguration:
+
+```sh
+cp .env.example .env
+```
+
+Trage anschließend deinen API-Key ausschließlich in `.env` ein:
+
+```text
+OPENAI_API_KEY=dein_key_hier
+OPENAI_MODEL=gpt-6-luna
+```
+
+Der API-Key steht **nicht im Frontend-Code**. `.env` ist in `.gitignore` ausgeschlossen und darf nicht nach GitHub hochgeladen werden.
+
+## KI-Lernset aus vorhandenen Unterlagen
+
+Unter **Fächer & Lernsets** gibt es den Bereich **„KI · Direkt lernen“**.
+
+Ablauf:
+
+1. Fach auswählen, z. B. `Datenbanken`.
+2. Thema eingeben, z. B. `SQL` oder `Normalisierung`.
+3. 10, 20 oder 30 Fragen auswählen.
+4. Optional ein bestehendes Lernset als Quelle auswählen.
+5. **„Lernset erstellen & direkt lernen“** drücken.
+
+Die Plattform sammelt zuerst passende Inhalte aus deinen bereits importierten PDF/TXT/MD-Lernkarten bzw. gespeicherten Dokumentauszügen und gibt diesen Kontext an die ausgewählte KI weiter.
+
+Unterstützte KI-Fragetypen:
+
+- Single Choice
+- Multiple Choice
+- Freitext
+- Richtig/Falsch
+- Rechenaufgaben
+- praxisnahe IHK-Situationen
+
+Bei KI-generierten Fragen wird deine Antwort bewertet als:
+
+- richtig
+- teilweise richtig
+- falsch
+
+Zusätzlich werden Musterlösung und verständliche Erklärung angezeigt.
+
+## IHK-Prüfungsmodus mit Auswertung
+
+Im Prüfungsmodus werden während der Prüfung keine Lösungen angezeigt.
+
+Am Ende erscheinen:
+
+- Gesamtprozent
+- erreichte Punkte
+- Ergebnis je Thema
+- falsch bzw. teilweise beantwortete Aufgaben
+- Empfehlung für Themen unter 70 %
+
+Falsche Antworten werden weiterhin früher zur Wiederholung eingeplant.
+
 ## Start
 
 1. Repository herunterladen oder klonen.
@@ -170,13 +277,12 @@ Der Text einer importierten PDF/TXT-Datei wird in den daraus erzeugten Lernkarte
 
 Unter **Fortschritt** kannst du eine JSON-Sicherung herunterladen und später wiederherstellen.
 
-## Grenzen der aktuellen Version
+## Hinweise zur KI-Funktion
 
-Die Seite kann PDF-Inhalt lokal lesen und einfache Lernkarten daraus erzeugen, besitzt aber lokal kein Sprachmodell. Deshalb kann sie aus beliebigen Unterlagen noch keine hochwertigen komplexen Klausurfragen inklusive semantischer Freitextbewertung erzeugen.
-
-Für besonders gute Lernsets gibt es zwei Wege:
-
-1. strukturierte Fragen samt Lösungen als JSON importieren,
-2. PDFs in ChatGPT bereitstellen und daraus passende Fragen, Erklärungen und Rechenwege erstellen lassen; anschließend kann die erzeugte JSON-Datei importiert werden.
-
-Das ist besonders sinnvoll für alte IHK-Prüfungen, weil Aufgaben, Musterlösungen, Rechenwege und Punkte sauber geprüft werden sollten.
+- Ollama muss für lokale KI-Funktionen auf dem Rechner laufen.
+- Das Modell wird beim ersten Mal separat durch Ollama heruntergeladen.
+- Die Qualität der erzeugten Fragen hängt von der Qualität der importierten Unterlagen ab.
+- Bereits vorhandene Lernsets und Fortschrittsdaten werden durch die KI-Erweiterung nicht automatisch gelöscht oder überschrieben.
+- Alte PDF-Imports können als Grundlage dienen, solange die daraus erzeugten Textabschnitte/Lernkarten noch im Browser gespeichert sind.
+- OpenAI ist nur eine optionale Alternative und verursacht je nach verwendetem Modell API-Kosten.
+- Originale IHK-Prüfungsunterlagen sollten nicht ohne entsprechende Rechte öffentlich im Repository veröffentlicht werden.
