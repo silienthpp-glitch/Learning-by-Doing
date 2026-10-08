@@ -30,6 +30,15 @@ Keine zufälligen Fremdbegriffe als falsche Antworten, keine Alles/Nichts-Option
 Fachliche Eindeutigkeit prüfen; unsichere Aufgaben weglassen. Keine Wunschzahl durch schwache Fragen erzwingen.
 Musterlösungen dürfen nicht allein aus einem Quellenverweis bestehen. Liefere nur das JSON des Schemas.'''
 
+def api_key():
+    key=os.environ.get('OPENAI_API_KEY','').strip()
+    if key:return key
+    path=ROOT/'.openai-api-key'
+    if not path.exists():return ''
+    if path.is_symlink() or path.stat().st_mode & 0o077:
+        raise ValueError('Die lokale Schlüsseldatei ist nicht ausreichend geschützt. KI-einrichten.command erneut ausführen.')
+    return path.read_text().strip()
+
 def config():
     path=ROOT/'ai-config.json'
     data=json.loads(path.read_text()) if path.exists() else {}
@@ -37,7 +46,7 @@ def config():
     provider=data.get('provider','disabled');model=data.get('model','')
     if not isinstance(model,str):raise ValueError('Modell muss ein Text sein.')
     ready=provider in ('openai','ollama') and isinstance(model,str) and bool(model.strip())
-    if provider=='openai':ready=ready and bool(os.environ.get('OPENAI_API_KEY'))
+    if provider=='openai':ready=ready and bool(api_key())
     if provider=='ollama' and ('cloud' in model.lower() or '/' in model):ready=False
     return {'provider':provider,'model':model,'ready':bool(ready)}
 
@@ -89,7 +98,7 @@ def call_model(cfg,instructions,payload):
     if cfg['provider']=='openai':
         url='https://api.openai.com/v1/responses'
         body={'model':cfg['model'],'input':messages,'store':False,'max_output_tokens':10000,'text':{'format':{'type':'json_schema','name':'exam_pack','strict':True,'schema':SCHEMA}}}
-        headers={'Authorization':'Bearer '+os.environ['OPENAI_API_KEY']}
+        headers={'Authorization':'Bearer '+api_key()}
     else:
         url='http://127.0.0.1:11434/api/chat'
         body={'model':cfg['model'],'messages':messages,'format':SCHEMA,'stream':False}
@@ -117,7 +126,7 @@ def call_model(cfg,instructions,payload):
 
 def generate(data,caller=None):
     pages,count=validate_request(data);cfg=config()
-    if not cfg['ready']:raise ValueError('KI noch nicht eingerichtet. Anbieter und Modell in ai-config.json festlegen; bei OpenAI den Schlüssel als Umgebungsvariable setzen.')
+    if not cfg['ready']:raise ValueError('KI noch nicht eingerichtet. Anbieter und Modell in ai-config.json festlegen; bei OpenAI KI-einrichten.command ausführen.')
     if data.get('provider')!=cfg['provider']:raise ValueError('KI-Anbieter wurde geändert. Bitte Freigabe erneut prüfen.')
     call=caller or call_model
     context={'pages':pages,'count':count,'mode':data['mode'],'subject':str(data.get('subject',''))[:100]}

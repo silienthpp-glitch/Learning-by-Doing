@@ -14,3 +14,7 @@ learning-by-doing-sicherung*.json
 ai-config.json
 dist/private-ihk/
 *.zip
+
+.openai-api-key
+
+.ki-setup-*

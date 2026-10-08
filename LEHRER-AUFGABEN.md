@@ -17,6 +17,14 @@ Nach einem Update des Servers den alten Prozess im betreffenden Terminal mit Str
 
 Der bestehende Docker-Container ist weiterhin ein statischer Server: Lernen und JSON-Import funktionieren dort, die neue KI-Erstellung erfordert `start.py` direkt auf dem Rechner. Docker und Ollama im Container wurden nicht getestet.
 
+## OpenAI per Doppelklick einrichten
+
+`KI-einrichten.command` öffnen. Der Assistent verwendet GPT-5.4 mini und erklärt die Kostenpflicht und lokale Speicherung. Einen eigenen Schlüssel unter https://platform.openai.com/api-keys erstellen und ausschließlich in die unsichtbare Eingabe des Assistenten einfügen. Die Einrichtung prüft den Modellzugriff ohne kostenpflichtige Aufgabengenerierung. Sie bestätigt weder Guthaben noch fachliche Qualität.
+
+Der Schlüssel liegt unverschlüsselt in `.openai-api-key` außerhalb von `dist`, nur für dein Benutzerkonto lesbar (Dateirechte 600), und wird von Git ausgeschlossen. Er wird nicht vom Webserver ausgeliefert. Zum Entfernen diese lokale Datei löschen. Eine gesetzte `OPENAI_API_KEY`-Umgebungsvariable hat Vorrang. Keine Schlüssel im Chat senden.
+
+Danach den bisherigen Server im Terminal mit Strg+C beenden und `Start.command` starten. Anbieterwahl und Schlüsselprüfung übertragen keine Unterrichtstexte. Erst die Freigabe eines Imports löst zwei kostenpflichtige Modellaufrufe mit den ausgewählten Seiten aus.
+
 ## KI einmalig einrichten
 
 Standardmäßig ist die KI deaktiviert. Es wird kein Modell installiert und keine Quelle automatisch übertragen.
