@@ -1,0 +1,172 @@
+[
+  {
+    "id": "test-q0",
+    "setId": "test-six",
+    "subject": "IHK AP2",
+    "topic": "Datenbanken",
+    "type": "choice",
+    "prompt": "Welcher Schlüssel identifiziert einen Datensatz eindeutig?",
+    "answer": "Primärschlüssel",
+    "options": [
+      "Primärschlüssel",
+      "Ortsname",
+      "Nachname"
+    ],
+    "correctOptions": [
+      "Primärschlüssel"
+    ],
+    "points": 1,
+    "rubric": [],
+    "explanation": "Primärschlüssel",
+    "sourceName": "Selbst verfasste Testfälle",
+    "sourcePage": 1,
+    "evidence": "Primärschlüssel",
+    "generatorVersion": 6,
+    "reviewed": true,
+    "aiGenerated": true,
+    "steps": [],
+    "aliases": []
+  },
+  {
+    "id": "test-q1",
+    "setId": "test-six",
+    "subject": "IHK AP2",
+    "topic": "Datenbanken",
+    "type": "multi",
+    "prompt": "Welche beiden SQL-Befehle verändern Daten?",
+    "answer": "INSERT; UPDATE",
+    "options": [
+      "INSERT",
+      "UPDATE",
+      "SELECT",
+      "EXPLAIN"
+    ],
+    "correctOptions": [
+      "INSERT",
+      "UPDATE"
+    ],
+    "points": 1,
+    "rubric": [],
+    "explanation": "INSERT; UPDATE",
+    "sourceName": "Selbst verfasste Testfälle",
+    "sourcePage": 1,
+    "evidence": "INSERT; UPDATE",
+    "generatorVersion": 6,
+    "reviewed": true,
+    "aiGenerated": true,
+    "steps": [],
+    "aliases": []
+  },
+  {
+    "id": "test-q2",
+    "setId": "test-six",
+    "subject": "IHK AP2",
+    "topic": "Datenbanken",
+    "type": "truefalse",
+    "prompt": "Ein Primärschlüssel identifiziert Datensätze eindeutig.",
+    "answer": "Richtig",
+    "options": [
+      "Richtig",
+      "Falsch"
+    ],
+    "correctOptions": [
+      "Richtig"
+    ],
+    "points": 1,
+    "rubric": [],
+    "explanation": "Richtig",
+    "sourceName": "Selbst verfasste Testfälle",
+    "sourcePage": 1,
+    "evidence": "Richtig",
+    "generatorVersion": 6,
+    "reviewed": true,
+    "aiGenerated": true,
+    "steps": [],
+    "aliases": []
+  },
+  {
+    "id": "test-q3",
+    "setId": "test-six",
+    "subject": "IHK AP2",
+    "topic": "Datenbanken",
+    "type": "selfcheck",
+    "prompt": "Was ist ein Primärschlüssel?",
+    "answer": "Ein Primärschlüssel identifiziert jeden Datensatz eindeutig.",
+    "options": [],
+    "correctOptions": [],
+    "points": 2,
+    "rubric": [
+      {
+        "text": "Ein Primärschlüssel identifiziert jeden Datensatz eindeutig.",
+        "points": 2
+      }
+    ],
+    "explanation": "Ein Primärschlüssel identifiziert jeden Datensatz eindeutig.",
+    "sourceName": "Selbst verfasste Testfälle",
+    "sourcePage": 1,
+    "evidence": "Ein Primärschlüssel identifiziert jeden Datensatz eindeutig.",
+    "generatorVersion": 6,
+    "reviewed": true,
+    "aiGenerated": true,
+    "steps": [],
+    "aliases": []
+  },
+  {
+    "id": "test-q4",
+    "setId": "test-six",
+    "subject": "IHK AP2",
+    "topic": "Datenbanken",
+    "type": "calculation",
+    "prompt": "Eine Tabelle enthält 20 Datensätze mit je 100 Byte. Wie viel Speicher belegen sie ohne Zusatzdaten?",
+    "answer": "20 × 100 Byte = 2000 Byte.",
+    "options": [],
+    "correctOptions": [],
+    "points": 2,
+    "rubric": [
+      {
+        "text": "20 × 100 Byte = 2000 Byte.",
+        "points": 2
+      }
+    ],
+    "explanation": "20 × 100 Byte = 2000 Byte.",
+    "sourceName": "Selbst verfasste Testfälle",
+    "sourcePage": 1,
+    "evidence": "20 × 100 Byte = 2000 Byte.",
+    "generatorVersion": 6,
+    "reviewed": true,
+    "aiGenerated": true,
+    "steps": [],
+    "aliases": []
+  },
+  {
+    "id": "test-q5",
+    "setId": "test-six",
+    "subject": "IHK AP2",
+    "topic": "Datenbanken",
+    "type": "case",
+    "prompt": "In einer Kundentabelle können Namen doppelt vorkommen. Welches Feld verwenden Sie als Primärschlüssel und warum?",
+    "answer": "Eine eindeutige Kundennummer identifiziert jeden Kunden unabhängig vom Namen.",
+    "options": [],
+    "correctOptions": [],
+    "points": 2,
+    "rubric": [
+      {
+        "text": "Eine Kundennummer als Schlüssel vorschlagen",
+        "points": 1
+      },
+      {
+        "text": "Begründen, dass der Schlüssel jeden Kunden eindeutig und unabhängig vom Namen identifiziert",
+        "points": 1
+      }
+    ],
+    "explanation": "Eine eindeutige Kundennummer identifiziert jeden Kunden unabhängig vom Namen.",
+    "sourceName": "Selbst verfasste Testfälle",
+    "sourcePage": 1,
+    "evidence": "Eine eindeutige Kundennummer identifiziert jeden Kunden unabhängig vom Namen.",
+    "generatorVersion": 6,
+    "reviewed": true,
+    "aiGenerated": true,
+    "steps": [],
+    "aliases": []
+  }
+]

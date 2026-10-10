@@ -26,11 +26,11 @@ Unter **Fächer & Lernsets** kannst du mehrere Dateien einem Lernset zuordnen:
 
 ### PDF, TXT und Markdown
 
-Aus Textunterlagen erstellt die App automatisch Lernkarten. Du beantwortest eine Frage zunächst selbst, deckst danach den Originalinhalt auf und wählst **Gewusst** oder **Noch nicht sicher**.
+PDF- und TXT-Unterlagen werden lokal gelesen und nach Themen erschlossen. Scan-PDFs erhalten lokale Texterkennung. Auf dem Dashboard wählst du Thema und 10, 20 oder 30 Fragen. Ollama mit Qwen3 8B ist Standard; OpenAI ist nur nach ausdrücklicher Auswahl möglich. Ohne passende Quellen entstehen keine allgemeinen Ersatzfragen.
 
-Eine rein lokale Webseite ohne KI kann nicht zuverlässig entscheiden, ob zwei frei formulierte Antworten inhaltlich gleichbedeutend sind. Deshalb vermeidet die App bei solchen Karten absichtlich eine scheinbar genaue automatische Bewertung.
+Die KI erstellt Aufgaben und prüft sie in einem zweiten Durchgang gegen die Textquellen. Unterstützt werden Single Choice, Mehrfachauswahl, Richtig/Falsch, Freitext, Rechenaufgaben und Praxisfälle. Offene Antworten werden anhand der Punktkriterien bewertet. Im Prüfungsmodus erscheinen Lösungen und Ergebnisse erst am Ende. KI-Prüfung und Texterkennung können Fehler enthalten; Quellenbeleg und Musterlösung bleiben einsehbar.
 
-Für PDFs wird PDF.js beim ersten PDF-Import aus einem CDN geladen. Dafür ist beim ersten PDF-Import eine Internetverbindung nötig. Die ausgewählte PDF-Datei wird dabei nicht zu einem Server hochgeladen, sondern im Browser gelesen. TXT, Markdown, JSON und das normale Lernen funktionieren weiterhin lokal.
+**Start und Einrichtung:** [LOKAL-LERNEN.md](LOKAL-LERNEN.md). Bestehende Lernsets und Browserdaten bleiben erhalten. Python-Server lokal starten; ein rein statischer Webserver unterstützt die KI-Endpunkte nicht.
 
 ### JSON-Fragen
 
@@ -59,7 +59,13 @@ Unterstützte Typen:
 - `choice` – Multiple Choice
 - `number` – eindeutige Zahl
 - `text` – exakte Textantwort oder Alias
-- `selfcheck` – Selbstkontroll-Lernkarte
+- `selfcheck` – offene Wissensfrage oder bisherige Selbstkontroll-Lernkarte
+- `multi` – mehrere richtige Optionen
+- `truefalse` – Richtig/Falsch
+- `calculation` – Rechenaufgabe mit Punktkriterien
+- `case` – Praxisfall mit Punktkriterien
+
+Die neuen KI-Formate verwenden `generatorVersion: 6`, bei Auswahlfragen `correctOptions`, bei offenen Aufgaben `rubric`. Ein selbst verfasstes Importbeispiel für alle sechs Formate liegt unter `tests/fixtures/six-types-import.json`.
 
 ## Lernlogik
 
@@ -117,113 +123,6 @@ Vier Frage-/Antwort-Zuordnungen werden gezeigt. Eine Antwort gehört absichtlich
 
 Die Spiele ergänzen normales Lernen und Prüfungssimulationen, ersetzen sie aber nicht.
 
-## KI-Lernen: kostenlos lokal mit Ollama
-
-Die Plattform kann jetzt aus deinen **bereits importierten Unterlagen** neue, thematisch passende Lernsets erstellen und Antworten bewerten.
-
-Standardmäßig wird **Ollama lokal auf deinem Rechner** verwendet. Dadurch entstehen keine Kosten pro KI-Anfrage.
-
-Empfohlenes Standardmodell:
-
-```sh
-qwen3.5:4b
-```
-
-Wenn bereits ein anderes unterstütztes Ollama-Modell installiert ist, kann der lokale Server dieses automatisch verwenden.
-
-### Ollama auf macOS vorbereiten
-
-1. Ollama installieren bzw. die Ollama-App öffnen.
-2. Terminal öffnen.
-3. Modell einmalig herunterladen:
-
-```sh
-ollama pull qwen3.5:4b
-```
-
-4. Falls Ollama nicht automatisch läuft:
-
-```sh
-ollama serve
-```
-
-5. Prüfen:
-
-```sh
-ollama list
-```
-
-In der Lernplattform unter **Einstellungen** siehst du anschließend:
-
-- 🟢 Lokale KI verbunden
-- 🔴 Lokale KI nicht erreichbar
-- 🟢 OpenAI verfügbar
-- ⚪ OpenAI nicht eingerichtet
-
-## Optional: OpenAI API
-
-OpenAI ist **nicht erforderlich**. Die Plattform funktioniert vollständig mit Ollama.
-
-Wenn du OpenAI ausdrücklich verwenden möchtest, kopiere im Projektordner die Beispielkonfiguration:
-
-```sh
-cp .env.example .env
-```
-
-Trage anschließend deinen API-Key ausschließlich in `.env` ein:
-
-```text
-OPENAI_API_KEY=dein_key_hier
-OPENAI_MODEL=gpt-6-luna
-```
-
-Der API-Key steht **nicht im Frontend-Code**. `.env` ist in `.gitignore` ausgeschlossen und darf nicht nach GitHub hochgeladen werden.
-
-## KI-Lernset aus vorhandenen Unterlagen
-
-Unter **Fächer & Lernsets** gibt es den Bereich **„KI · Direkt lernen“**.
-
-Ablauf:
-
-1. Fach auswählen, z. B. `Datenbanken`.
-2. Thema eingeben, z. B. `SQL` oder `Normalisierung`.
-3. 10, 20 oder 30 Fragen auswählen.
-4. Optional ein bestehendes Lernset als Quelle auswählen.
-5. **„Lernset erstellen & direkt lernen“** drücken.
-
-Die Plattform sammelt zuerst passende Inhalte aus deinen bereits importierten PDF/TXT/MD-Lernkarten bzw. gespeicherten Dokumentauszügen und gibt diesen Kontext an die ausgewählte KI weiter.
-
-Unterstützte KI-Fragetypen:
-
-- Single Choice
-- Multiple Choice
-- Freitext
-- Richtig/Falsch
-- Rechenaufgaben
-- praxisnahe IHK-Situationen
-
-Bei KI-generierten Fragen wird deine Antwort bewertet als:
-
-- richtig
-- teilweise richtig
-- falsch
-
-Zusätzlich werden Musterlösung und verständliche Erklärung angezeigt.
-
-## IHK-Prüfungsmodus mit Auswertung
-
-Im Prüfungsmodus werden während der Prüfung keine Lösungen angezeigt.
-
-Am Ende erscheinen:
-
-- Gesamtprozent
-- erreichte Punkte
-- Ergebnis je Thema
-- falsch bzw. teilweise beantwortete Aufgaben
-- Empfehlung für Themen unter 70 %
-
-Falsche Antworten werden weiterhin früher zur Wiederholung eingeplant.
-
 ## Start
 
 1. Repository herunterladen oder klonen.
@@ -273,16 +172,17 @@ Learning-by-Doing/
 
 Lerndaten werden mit `localStorage` im Browser gespeichert. Dazu gehören Lernfortschritt, Wiederholungsstände, eigene Fragen, Lernsets, Datei-Metadaten sowie Level-/Spielhistorie.
 
-Der Text einer importierten PDF/TXT-Datei wird in den daraus erzeugten Lernkarten gespeichert. Das Originaldokument selbst wird nicht als Datei im Browser-Speicher abgelegt.
+Neue PDF/TXT-Texte und importierte PDFs werden im privaten Projektordner `.local-data` gespeichert; Lernsets und Fortschritt bleiben im Browser. Das Originaldokument wird nicht als Datei im Browser-Speicher abgelegt. Beide Speicherbereiche sollten für einen Rechnerwechsel gesichert werden.
 
 Unter **Fortschritt** kannst du eine JSON-Sicherung herunterladen und später wiederherstellen.
 
-## Hinweise zur KI-Funktion
+## Grenzen der aktuellen Version
 
-- Ollama muss für lokale KI-Funktionen auf dem Rechner laufen.
-- Das Modell wird beim ersten Mal separat durch Ollama heruntergeladen.
-- Die Qualität der erzeugten Fragen hängt von der Qualität der importierten Unterlagen ab.
-- Bereits vorhandene Lernsets und Fortschrittsdaten werden durch die KI-Erweiterung nicht automatisch gelöscht oder überschrieben.
-- Alte PDF-Imports können als Grundlage dienen, solange die daraus erzeugten Textabschnitte/Lernkarten noch im Browser gespeichert sind.
-- OpenAI ist nur eine optionale Alternative und verursacht je nach verwendetem Modell API-Kosten.
-- Originale IHK-Prüfungsunterlagen sollten nicht ohne entsprechende Rechte öffentlich im Repository veröffentlicht werden.
+Die Seite verwendet ein separat gestartetes lokales Sprachmodell über Ollama. Texterkennung, Fragen und KI-Bewertungen können fachliche Fehler enthalten. Technische Prüfungen und ein zweiter KI-Durchgang reduzieren diese Fehler, ersetzen aber keine Prüfung anhand deiner Unterlagen. Werden nicht genügend belegte Fragen gefunden, wird die kleinere Zahl ausdrücklich angezeigt.
+
+Zusätzlich zur lokalen Erstellung kannst du selbst geprüfte strukturierte Fragen als JSON importieren. Dafür gibt es zwei Wege:
+
+1. strukturierte Fragen samt Lösungen als JSON importieren,
+2. PDFs in ChatGPT bereitstellen und daraus passende Fragen, Erklärungen und Rechenwege erstellen lassen; anschließend kann die erzeugte JSON-Datei importiert werden.
+
+Das ist besonders sinnvoll für alte IHK-Prüfungen, weil Aufgaben, Musterlösungen, Rechenwege und Punkte sauber geprüft werden sollten.
