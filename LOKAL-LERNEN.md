@@ -115,3 +115,13 @@ dass ein Schlüssel eingerichtet ist; Gültigkeit/Guthaben werden erst beim API-
 ## Bestehender GitHub-Stand
 
 Die bisherigen KI-Frageformate aus `main` werden beim Lernen angepasst, ohne gespeicherte IDs, Antworten oder Punkte zu verändern. Bereits gespeicherte Textauszüge werden beim Öffnen des Dashboards in den lokalen Dokumentindex übernommen und ausdrücklich als Textauszug bezeichnet. Vollständige Original-PDFs sind genauer und können zusätzlich importiert werden. Die separate KI-Oberfläche aus `main` wird durch den geprüften gemeinsamen Lernablauf ersetzt; Spiele, Lernsets, Sicherungen und Design bleiben erhalten.
+
+## Fragen aus einem vorhandenen Klausur- oder Test-Lernset
+
+1. Unter „Fächer & Lernsets“ beim bestehenden Lernset **Fragen erstellen** drücken.
+2. Oben sind das Lernset und seine eigenen Dateien vorausgewählt. 10, 20 oder 30 Fragen wählen und **Lernset erstellen** drücken.
+3. Die Prüfung der KI-Entwürfe dauert mehrere Minuten. Danach **Jetzt lernen** drücken.
+
+Die Fragen werden dem vorhandenen Lernset hinzugefügt. Name, Termin, bisherige Aufgaben und Lernfortschritt bleiben erhalten. Fachbezeichnungen wie EVP10b werden unterstützt; es werden ausschließlich die diesem Lernset zugeordneten Dokumente ausgewertet. Dateien können mehreren Lernsets zugeordnet werden. Bei einer KI-Unterbrechung werden bereits geprüfte Fragen mit einem Hinweis gespeichert. Ohne lesbaren Text oder passende Belege erscheint eine Fehlermeldung; fehlende Fragen werden nicht mit allgemeinen Aufgaben aufgefüllt.
+
+Nach einem Code-Update den bisherigen Lernserver im Terminal mit Strg+C beenden, im Ordner `/Users/akwesi/Desktop/Learning-by-Doing-neu` `python3 -B start.py --port 8765 --open-browser` ausführen und die bisherige Browserseite mit Cmd+Shift+R neu laden. Verwende denselben Browser und dieselbe Adresse wie zuvor, damit deine dort gespeicherten Lernsets erhalten bleiben.

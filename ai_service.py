@@ -179,8 +179,13 @@ def validate(q,sources,topic):
     source=sources[sid-1];quote=evidence_span(q['evidence'],source['text'])
     if not quote:raise ValueError('Quellenbeleg stimmt nicht mit den Unterlagen überein.')
     q['evidence']=quote
-    if not materials.score(quote,topic):raise ValueError('Der Quellenbeleg enthält keinen fachlichen Bezug zum Thema.')
-    if not materials.score(q['prompt']+' '+q['answer'],topic):raise ValueError('Aufgabe passt nicht zum Thema.')
+    if re.search(r'Auswahl\s*:|welche.*im Text.*beschrieben',q['prompt'],re.I):raise ValueError('Unvollständige Frage: Überschriften oder bereits eingebettete Optionen ersetzen keine Fachaufgabe.')
+    if q['type']=='case' and re.search(r'am besten|bestgeeignet|beste Lösung',q['prompt']+' '+q['answer'],re.I) and len(q['prompt'])<220:
+        raise ValueError('Unvollständige Praxisaufgabe: Auswahlkriterien fehlen. Nach einer geeigneten Lösung fragen oder Anforderungen vollständig angeben.')
+    if re.search(r'RAID.?5',q['prompt'],re.I) and re.search(r'prozent|steigerung',q['prompt'],re.I) and not re.search(r'gleich|jeweils|je |TB|GB',q['prompt'],re.I):
+        raise ValueError('Unvollständige Rechenaufgabe: Festplattenkapazitäten oder gleiche Größen fehlen.')
+    if topic in materials.TOPICS and not materials.score(quote,topic):raise ValueError('Der Quellenbeleg enthält keinen fachlichen Bezug zum Thema.')
+    if topic in materials.TOPICS and not materials.score(q['prompt']+' '+q['answer'],topic):raise ValueError('Aufgabe passt nicht zum Thema.')
     if topic=='Datenbanken' and re.search(r'\b(?:char|varchar)\b',q['prompt']+' '+q['answer'],re.I) and re.search(r'platzverschwendung|speicherbedarf|effizien|schneller|langsamer|(?:nicht|un)zulässig',q['explanation'],re.I):raise ValueError('Unbelegte Verallgemeinerung über SQL-Datentypen. Nur konkrete Eigenschaften erläutern und nötige Zeichenlängen im Fragetext nennen.')
     if topic=='Datenbanken':
         sizes=re.findall(r'\b(?:var)?char\s*\(\s*(\d+)',q['answer'],re.I)
@@ -239,15 +244,25 @@ def question_fingerprint(prompt):
     text=re.sub(r'\b(?:benutze die quellenangaben|geben sie eine begründung für ihre antwort)\b[.!]?','',text)
     return re.sub(r'\s+',' ',text).strip(' .,!?')
 
+def same_learning_question(a,b):
+    def answer(q):return materials.normalize(q['answer']).casefold().strip(' ;.!')
+    if answer(a)!=answer(b):return False
+    first=set(re.findall(r'[a-zäöüß0-9]+',question_fingerprint(a['prompt'])))
+    second=set(re.findall(r'[a-zäöüß0-9]+',question_fingerprint(b['prompt'])))
+    return len(first & second)/max(1,len(first | second))>.6
+
 def run_generation(job_id,data,cfg):
     job=JOBS[job_id]
+    questions=[]
     try:
-        topic=data['topic'];count=data['count'];sources=materials.retrieve(topic,30);questions=[];seen=set();rejected=0
-        if topic=='Datenbanken':
+        topic=data['topic'];count=data['count'];sources=(materials.retrieve_selected(topic,data['documentIds'],30) if data.get('documentIds') else materials.retrieve(topic,30));questions=[];seen={question_fingerprint(p) for p in data.get('existingPrompts',[])};rejected=0
+        if topic=='Datenbanken' or data.get('documentIds'):
             evidence=[{'sourceId':i+1,'quote':quote} for i,s in enumerate(sources) for quote in evidence_choices_for(s['text'])]
-            for raw in source_templates.candidates(evidence):
+            templates=source_templates.candidates(evidence) if topic=='Datenbanken' else source_templates.storage_candidates([{'sourceId':i+1,'quote':s['text']} for i,s in enumerate(sources)])
+            for raw in templates:
                 try:q=validate(canonical(raw,topic),sources,topic)
                 except (ValueError,TypeError):continue
+                if question_fingerprint(q['prompt']) in seen:continue
                 questions.append(q);seen.add(question_fingerprint(q['prompt']))
                 if len(questions)==count:break
         for attempt in range(count+8):
@@ -259,7 +274,7 @@ def run_generation(job_id,data,cfg):
             for source_index,source in enumerate(chunk):
                 for quote in evidence_choices_for(source['text']):
                     evidence_choices.append({'evidenceId':len(evidence_choices)+1,'sourceId':source_index+1,'quote':quote})
-            context={'topic':topic,'count':needed,'sources':[{'sourceId':i+1,'text':p['text'],'document':p['sourceName']} for i,p in enumerate(chunk)],'evidenceChoices':evidence_choices,'taskContext':materials.related_context(chunk[0],topic),'alreadyCovered':[q.get('teachingFocus') or q['answer'][:180] for q in questions]}
+            context={'topic':topic,'count':needed,'sources':[{'sourceId':i+1,'text':p['text'],'document':p['sourceName']} for i,p in enumerate(chunk)],'evidenceChoices':evidence_choices,'taskContext':([] if data.get('documentIds') else materials.related_context(chunk[0],topic)),'alreadyCovered':data.get('existingPrompts',[])[:100]+[q.get('teachingFocus') or q['answer'][:180] for q in questions]}
             allowed=['choice','multi'] if attempt%2==0 else ['selfcheck','case','calculation','truefalse']
             schema=generation_schema(allowed,needed,evidence_choices,len(chunk))
             pack=model(cfg,INSTRUCTION+'\nIn diesem Durchgang ausschließlich diese Fragetypen verwenden: '+', '.join(allowed),context,schema)
@@ -296,19 +311,32 @@ def run_generation(job_id,data,cfg):
                 answer=materials.normalize(q['answer']).casefold().strip(' ;.!')
                 if q.get('teachingFocus') and any(previous.get('teachingFocus')==q['teachingFocus'] for previous in questions):continue
                 if any(min(len(answer),len(old))>=30 and (answer in old or old in answer) for old in (materials.normalize(previous['answer']).casefold().strip(' ;.!') for previous in questions)):continue
+                if any(same_learning_question(q,previous) for previous in questions):continue
                 if fingerprint in seen or any(difflib.SequenceMatcher(None,fingerprint,previous).ratio()>0.93 for previous in seen):continue
                 seen.add(fingerprint);questions.append(q)
         if not questions:raise ValueError('Aus diesen Quellen konnten keine ausreichend belegten Fragen erstellt werden. Andere Unterlagen oder einen engeren Themenabschnitt verwenden.')
-        result={'questions':questions,'requested':count,'topic':topic,'warnings':([] if len(questions)==count else ['Es konnten nur '+str(len(questions))+' von '+str(count)+' ausreichend belegte Fragen erstellt werden.'])}
+        result={'questions':questions,'requested':count,'topic':topic,'targetSetId':data.get('targetSetId',''),'warnings':([] if len(questions)==count else ['Es konnten nur '+str(len(questions))+' von '+str(count)+' ausreichend belegte Fragen erstellt werden.'])}
         path=ROOT/'.local-data'/'generated';path.mkdir(parents=True,exist_ok=True);(path/(job_id+'.json')).write_text(json.dumps(result,ensure_ascii=False))
         job.update({'status':'done','message':'Lernset bereit.','completed':len(questions),'result':result})
-    except Exception as error:job.update({'status':'error','error':str(error) if isinstance(error,ValueError) else 'Erstellung fehlgeschlagen. Bitte erneut versuchen.'})
+    except Exception as error:
+        if questions:
+            result={'questions':questions,'requested':data['count'],'topic':data['topic'],'targetSetId':data.get('targetSetId',''),'warnings':['Die weitere KI-Auswertung wurde unterbrochen. '+str(len(questions))+' bereits geprüfte Fragen wurden gespeichert. Weitere Fragen können anschließend ergänzt werden.']}
+            path=ROOT/'.local-data'/'generated';path.mkdir(parents=True,exist_ok=True);(path/(job_id+'.json')).write_text(json.dumps(result,ensure_ascii=False))
+            job.update({'status':'done','message':'Bereits geprüfte Fragen sind bereit.','completed':len(questions),'result':result})
+        else:job.update({'status':'error','error':str(error) if isinstance(error,ValueError) else 'Erstellung fehlgeschlagen. Bitte erneut versuchen. Prüfe, ob Ollama noch läuft.'})
     finally:job['finishedAt']=time.time()
 
 def begin(data):
     topic=data.get('topic');count=data.get('count')
-    if topic not in materials.TOPICS or type(count)is not int or count not in (10,20,30):raise ValueError('Bitte Thema und 10, 20 oder 30 Fragen wählen.')
-    cfg=cfg_for(data);materials.retrieve(topic,1)
+    if not isinstance(topic,str) or not 1<=len(topic.strip())<=150 or (not data.get('documentIds') and topic not in materials.TOPICS) or type(count)is not int or count not in (10,20,30):raise ValueError('Bitte Thema und 10, 20 oder 30 Fragen wählen.')
+    target=data.get('targetSetId','')
+    if not isinstance(target,str) or len(target)>150:raise ValueError('Ungültiges Lernset.')
+    if target and not data.get('documentIds'):raise ValueError('Diesem Lernset sind noch keine lesbaren Dateien zugeordnet. Bitte Dateien in dieses Lernset importieren.')
+    existing=data.get('existingPrompts',[])
+    if not isinstance(existing,list) or len(existing)>500 or any(not isinstance(p,str) or len(p)>5000 for p in existing):raise ValueError('Ungültige vorhandene Fragen.')
+    cfg=cfg_for(data)
+    if data.get('documentIds'):materials.retrieve_selected(topic,data['documentIds'],1)
+    else:materials.retrieve(topic,1)
     with JOB_LOCK:
         if any(j['status']=='running' for j in JOBS.values()):raise ValueError('Es wird bereits ein Lernset erstellt. Bitte warten.')
         jid=uuid.uuid4().hex;JOBS[jid]={'id':jid,'status':'running','completed':0,'message':'Passende Textstellen werden ausgewertet.','topic':topic,'requested':count}

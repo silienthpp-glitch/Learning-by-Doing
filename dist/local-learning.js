@@ -33,10 +33,11 @@ const LearningAI=(()=>{
     if(route==='dashboard'||route==='progress')progressPanel();
     if(!['dashboard','library'].includes(route))return;
     const panel=document.createElement('section');panel.id='ai-quick';panel.className='card';panel.style.marginBottom='24px';
-    panel.innerHTML='<h2>Mit deinen IHK-Unterlagen lernen</h2><p>Thema auswählen, Lernset erstellen und üben. Belegte Grundlagen werden mit geprüften Lernvorlagen schnell erstellt. Weitere KI-Fragen können einige Minuten dauern. Alle neuen Aufgaben enthalten Quellenbelege; KI-Entwürfe können dennoch Fehler enthalten.</p><div id="quick-connection" role="status">Lokale KI wird geprüft …</div><form id="quick-form" class="stack-form"><div class="filter-grid"><label>Thema<select name="topic" id="quick-topic" required><option value="">Unterlagen werden geladen …</option></select></label><label>Fragen<select name="count"><option>10</option><option>20</option><option>30</option></select></label></div><label id="openai-consent" hidden><span><input name="consent" type="checkbox" style="width:auto"> Ich gebe die kostenpflichtige OpenAI-Auswertung der passenden Textauszüge frei.</span></label><button type="submit" id="quick-create" disabled>Lernset erstellen</button><p id="quick-progress" role="status"></p></form><details><summary>Verwendbare Unterlagen ansehen</summary><div id="material-catalog"></div></details><p><a href="#settings">KI-Einstellungen</a> · <a href="#library">Weitere Unterlagen importieren</a></p><div id="resume-session"></div>';
+    panel.innerHTML='<h2>Mit deinen IHK-Unterlagen lernen</h2><p>Thema auswählen, Lernset erstellen und üben. Belegte Grundlagen werden mit geprüften Lernvorlagen schnell erstellt. Weitere KI-Fragen können einige Minuten dauern. Alle neuen Aufgaben enthalten Quellenbelege; KI-Entwürfe können dennoch Fehler enthalten.</p><div id="quick-connection" role="status">Lokale KI wird geprüft …</div><form id="quick-form" class="stack-form"><label>Lernset<select id="quick-set" name="targetSetId"><option value="">Neues IHK-Lernset</option></select></label><div class="filter-grid"><label>Thema<select name="topic" id="quick-topic" required><option value="">Unterlagen werden geladen …</option></select></label><label>Fragen<select name="count"><option>10</option><option>20</option><option>30</option></select></label></div><label id="openai-consent" hidden><span><input name="consent" type="checkbox" style="width:auto"> Ich gebe die kostenpflichtige OpenAI-Auswertung der passenden Textauszüge frei.</span></label><button type="submit" id="quick-create" disabled>Lernset erstellen</button><p id="quick-progress" role="status"></p></form><details><summary>Verwendbare Unterlagen ansehen</summary><div id="material-catalog"></div></details><p><a href="#settings">KI-Einstellungen</a> · <a href="#library">Weitere Unterlagen importieren</a></p><div id="resume-session"></div>';
     const first=app.querySelector('.heading');if(first)first.after(panel);else app.prepend(panel);
     try{
       const c=await status();
+      panel.querySelector('#quick-set').innerHTML='<option value="">Neues IHK-Lernset</option>'+state.sets.filter(s=>state.sources.some(x=>x.setId===s.id)).map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+'</option>').join('');
       // Gespeicherte Textauszüge der bisherigen GitHub-Fassung lokal weiterverwenden.
       for(const source of state.sources.filter(s=>!s.documentId&&typeof s.excerpt==='string'&&s.excerpt.trim().length>=80)){
         const doc=await api('/api/materials/upload',{name:source.name+' (gespeicherter Textauszug)',pages:[{page:1,text:source.excerpt}]});source.documentId=doc.id;save();
@@ -44,19 +45,22 @@ const LearningAI=(()=>{
       const r=await fetch('/api/materials',{cache:'no-store'});if(!r.ok)throw Error('Unterlagenbibliothek nicht erreichbar.');const catalog=await r.json();if(!panel.isConnected)return;
       panel.querySelector('#quick-connection').innerHTML=labels(c);
       panel.querySelector('#quick-topic').innerHTML=catalog.topics.map(t=>'<option value="'+esc(t.name)+'" '+(!t.documents?'disabled':'')+'>'+esc(t.name)+' · '+t.documents+' Unterlagen</option>').join('');
-      const available=catalog.topics.find(t=>t.documents);if(available)panel.querySelector('#quick-topic').value=available.name;
+      const available=catalog.topics.find(t=>t.documents);if(available){panel.querySelector('#quick-topic').value=available.name;panel.querySelector('#quick-topic').dataset.defaultTopic=available.name;}
       panel.querySelector('#quick-create').disabled=!c.ready||!available||Boolean(localStorage.getItem(JOB));
       panel.querySelector('#openai-consent').hidden=c.provider!=='openai';
       panel.querySelector('#material-catalog').innerHTML='<p>'+catalog.documents.length+' Dokumente lokal durchsuchbar.'+(catalog.index?.running?' Texterkennung: '+catalog.index.completed+'/'+catalog.index.total+' Dateien. Nach Abschluss Seite neu laden.':'')+'</p>'+catalog.documents.map(d=>'<p><strong>'+esc(d.name)+'</strong> · '+d.readablePages+'/'+d.pages+' lesbare Seiten<br><span class="small">'+esc(d.topics.join(', ')||'Noch kein Thema zugeordnet')+'</span></p>').join('');
       if(localStorage.getItem(ACTIVE)){panel.querySelector('#resume-session').innerHTML='<button id="resume-ai" class="quiet">Unterbrochene Lernrunde fortsetzen</button>';panel.querySelector('#resume-ai').onclick=()=>{try{session=JSON.parse(localStorage.getItem(ACTIVE));session.aiBusy=false;render();}catch{message='Gespeicherte Runde konnte nicht geladen werden.';render();}};}
       const existing=localStorage.getItem(JOB);if(existing)poll(existing,panel);
     }catch(e){if(panel.isConnected)panel.querySelector('#quick-connection').textContent=e.message;}
+    panel.querySelector('#quick-set').onchange=()=>{const target=panel.querySelector('#quick-set').value;selectTarget(panel,Boolean(target));panel.querySelector('#quick-create').disabled=!cfg?.ready||Boolean(localStorage.getItem(JOB))||(!target&&!panel.querySelector('#quick-topic').value);};
     panel.querySelector('form').onsubmit=async e=>{
       e.preventDefault();if(polling)return;const d=new FormData(e.currentTarget),out=panel.querySelector('#quick-progress');
       try{
         const c=await status();if(c.provider==='openai'&&!d.has('consent'))throw Error('Bitte die OpenAI-Auswertung freigeben oder lokale KI auswählen.');
         panel.querySelector('#quick-create').disabled=true;
-        const job=await api('/api/sets',{topic:d.get('topic'),count:Number(d.get('count')),provider:c.provider,consent:d.has('consent')});localStorage.setItem(JOB,job.id);poll(job.id,panel);
+        const target=setById(d.get('targetSetId'));const documentIds=target?[...new Set(state.sources.filter(s=>s.setId===target.id&&s.documentId).map(s=>s.documentId))]:undefined;
+        if(target&&!documentIds.length)throw Error('Keine lesbaren Dateien zugeordnet. Bitte die Dateien erneut in dieses Lernset importieren.');
+        const job=await api('/api/sets',{topic:target?(target.name+' · '+target.subject).slice(0,150):d.get('topic'),targetSetId:target?.id||'',documentIds,existingPrompts:target?bySet(target.id).map(q=>q.prompt).slice(0,500):[],count:Number(d.get('count')),provider:c.provider,consent:d.has('consent')});localStorage.setItem(JOB,job.id);poll(job.id,panel);
       }catch(err){out.textContent=err.message;panel.querySelector('#quick-create').disabled=false;}
     };
   }
@@ -69,10 +73,22 @@ const LearningAI=(()=>{
         panel=document.querySelector('#ai-quick')||panel;
         if(panel.isConnected)panel.querySelector('#quick-progress').textContent=job.message||'Erstellung läuft …';
         if(job.status==='done'){
-          const result=job.result,setId='set-ai-'+jid;
+          const result=job.result,setId=result.targetSetId||'set-ai-'+jid;
+          if(result.targetSetId&&!setById(setId))throw Error('Das Ziel-Lernset wurde inzwischen gelöscht. Fragen bleiben auf dem Server gespeichert.');
           if(!state.sets.some(s=>s.id===setId)){
             const set={id:setId,name:result.topic+' · IHK-Vorbereitung',subject:'IHK AP2',kind:'IHK',aiGenerated:true,createdAt:Date.now()};
-            state.sets.push(set);state.custom.push(...result.questions.map(q=>({...q,setId})));save();
+            state.sets.push(set);
+          }
+          const target=setById(setId);
+          if(!target)throw Error('Das Ziel-Lernset wurde inzwischen gelöscht. Fragen bleiben auf dem Server gespeichert.');
+          const existingIds=new Set(state.custom.map(q=>q.id));
+          state.custom.push(...result.questions.filter(q=>!existingIds.has(q.id)).map(q=>({...q,setId,subject:target.subject})));save();
+          const card=[...document.querySelectorAll('.set-card')].find(c=>c.querySelector('[data-set-learn]')?.dataset.setLearn===setId);
+          if(card){
+            const replacement=document.createElement('div');replacement.innerHTML=setCard(target);const updated=replacement.firstElementChild;card.replaceWith(updated);
+            updated.querySelector('[data-set-learn]').onclick=()=>start('learn',{setId});
+            updated.querySelector('[data-set-create]')?.addEventListener('click',()=>createFromSet(setId));
+            updated.querySelector('[data-set-delete]').onclick=()=>deleteSet(setId);
           }
           localStorage.removeItem(JOB);
           if(panel.isConnected){panel.querySelector('#quick-progress').textContent=result.questions.length+(result.questions.length===1?' Frage gespeichert. ':' Fragen gespeichert. ')+result.warnings.join(' ');panel.querySelector('#quick-progress').insertAdjacentHTML('afterend','<div class="actions"><button type="button" id="quick-learn">Jetzt lernen</button><button type="button" class="quiet" id="quick-exam">Als Probeprüfung starten</button></div>');panel.querySelector('#quick-learn').onclick=()=>start('learn',{setId});panel.querySelector('#quick-exam').onclick=()=>start('exam',{setId});}
@@ -98,7 +114,7 @@ const LearningAI=(()=>{
           if(f.name.toLowerCase().endsWith('.pdf')){const bytes=new Uint8Array(await f.arrayBuffer());let raw='';for(let i=0;i<bytes.length;i+=8192)raw+=String.fromCharCode(...bytes.subarray(i,i+8192));payload.pdf=btoa(raw);}
           else payload.pages=[{page:1,text:await f.text()}];
           const doc=await api('/api/materials/upload',payload);
-          if(!state.sources.some(s=>s.documentId===doc.id))state.sources.push({id:id('src'),documentId:doc.id,name:f.name,subject:set?.subject||'IHK AP2',setId:set?.id||'',cards:0,addedAt:Date.now()});save();
+          if(!state.sources.some(s=>s.documentId===doc.id&&s.setId===(set?.id||'')))state.sources.push({id:id('src'),documentId:doc.id,name:f.name,subject:set?.subject||'IHK AP2',setId:set?.id||'',cards:0,addedAt:Date.now()});save();
           messages.push(f.name+': gespeichert · '+(doc.topics.join(', ')||'kein bekanntes Thema erkannt'));
         }catch(e){messages.push(f.name+': '+e.message);}
       }
@@ -151,7 +167,20 @@ const LearningAI=(()=>{
       localStorage.removeItem(ACTIVE);session=null;document.querySelector('#ai-finish-dashboard').onclick=()=>{location.hash='dashboard';render();};
     }catch(e){s.aiBusy=false;persist();document.querySelector('#exam-grading').textContent=e.message;document.querySelector('#exam-grading').insertAdjacentHTML('afterend','<button id="grade-retry">Bewertung erneut versuchen</button>');document.querySelector('#grade-retry').onclick=()=>finish(early);}
   }
-  return {mount,settings,importFiles,renderQuestion,finish,persist};
+  function selectTarget(panel,selected){
+    const topic=panel.querySelector('#quick-topic');
+    if(!topic.querySelector('option[value="__set__"]'))topic.insertAdjacentHTML('beforeend','<option value="__set__">Fachinhalte aus den Dateien dieses Lernsets</option>');
+    topic.disabled=selected;topic.value=selected?'__set__':topic.dataset.defaultTopic||'';
+  }
+  function createFromSet(setId){
+    const panel=document.querySelector('#ai-quick'),select=panel?.querySelector('#quick-set');
+    if(!select||!select.querySelector('option[value="'+CSS.escape(setId)+'"]')){message='Bitte die Unterlagenbibliothek öffnen und kurz warten, bis die Dateien geladen sind.';render();return;}
+    select.value=setId;selectTarget(panel,true);
+    panel.querySelector('#quick-create').disabled=Boolean(localStorage.getItem(JOB))||!cfg?.ready;
+    panel.querySelector('#quick-progress').textContent='Es werden ausschließlich die Dateien aus „'+setById(setId).name+'“ verwendet. Anzahl auswählen und „Lernset erstellen“ drücken.';
+    panel.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  return {createFromSet,mount,settings,importFiles,renderQuestion,finish,persist};
 })();
 
 render();

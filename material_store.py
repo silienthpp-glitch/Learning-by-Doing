@@ -58,6 +58,26 @@ def catalog():
     return {'documents':[{'id':d['id'],'name':d['name'],'pages':len(d['pages']),'topics':ts,'readablePages':sum(len(p['text'].strip())>=80 for p in d['pages'])} for d,ts in zip(docs,topics)],
         'topics':[{'name':t,'documents':sum(t in ts for ts in topics)} for t in TOPICS]}
 
+def retrieve_selected(topic,document_ids,limit=30):
+    if not isinstance(document_ids,list) or not 1<=len(document_ids)<=100 or any(not isinstance(d,str) or not re.fullmatch('[a-f0-9]{16,64}',d) for d in document_ids):
+        raise ValueError('Bitte gültige Dokumente dieses Lernsets auswählen.')
+    docs={d['id']:d for d in all_docs()}
+    if any(d not in docs for d in document_ids):
+        raise ValueError('Eine Datei dieses Lernsets fehlt auf dem Server. Bitte diese Datei erneut importieren.')
+    selected=[]
+    for did in dict.fromkeys(document_ids):
+        doc=docs[did]
+        for page in doc['pages']:
+            text=normalize(re.sub(r'(?im)^.*(?:Fachinformatiker/in|Klasse:|Datum:|Oberstufe, EVP).*$', '', page['text']))
+            for offset in range(0,len(text),1600):
+                chunk=text[offset:offset+2000]
+                if len(chunk)<100:continue
+                selected.append({'text':chunk,'rank':1,'documentId':did,'sourceName':doc['name'],'sourcePage':page['page'],'sourceOffset':offset,'digest':doc['digest']})
+    if not selected:raise ValueError('Die Dateien dieses Lernsets enthalten noch keinen lesbaren Fachtext. Bitte die Texterkennung abwarten oder die Dateien erneut importieren.')
+    # Zunächst jeden Dokumentanfang berücksichtigen, dann weitere Abschnitte.
+    selected.sort(key=lambda p:(p['sourceOffset'],p['sourcePage']))
+    return selected[:limit]
+
 def retrieve(topic,limit=20):
     if topic not in TOPICS:raise ValueError('Bitte ein vorhandenes Thema auswählen.')
     ranked=[]

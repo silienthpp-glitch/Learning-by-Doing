@@ -33,6 +33,44 @@ class LocalAI(unittest.TestCase):
  def tearDown(self):
   for p in self.patches:p.stop()
   self.tmp.cleanup()
+ def test_selected_school_documents_exclude_unrelated_library_and_headers(self):
+  selected=ms.put('Eigener Informationstext',[{'page':1,'text':'Fachinformatiker/in\nKlasse: __________\nDatum: ______\nDirect Attached Storage verbindet einen Speicher direkt mit einem Server. Ein Storage Area Network stellt Blockspeicher über ein eigenes Netz bereit.'}])
+  other=ms.put('Andere Unterlagen',[{'page':1,'text':'SQL SELECT FROM Datenbanken. '*20}])
+  result=ms.retrieve_selected('EVP10b Test 1',[selected['id']])
+  self.assertEqual({r['documentId'] for r in result},{selected['id']})
+  self.assertTrue(all('Klasse:' not in r['text'] for r in result))
+  with self.assertRaises(ValueError):ms.retrieve_selected('EVP10b',['f'*24])
+  with self.assertRaises(ValueError):ms.retrieve_selected('EVP10b',['../secret'])
+ def test_selected_unreadable_documents_report_problem(self):
+  doc=ms.put('Scan',[{'text':'   '}])
+  with self.assertRaisesRegex(ValueError,'lesbaren Fachtext'):ms.retrieve_selected('EVP10b',[doc['id']])
+ def test_target_set_requires_documents(self):
+  with self.assertRaises(ValueError):ai.begin({'topic':'Datenbanken','count':10,'targetSetId':'existing'})
+ def test_cached_pdf_keeps_original_name_without_repeating_ocr(self):
+  import start,base64,hashlib
+  raw=b'%PDF self authored cache test';did=hashlib.sha256(raw).hexdigest()
+  ms.put('Original.pdf',[{'text':'Direct Attached Storage connects storage to the server. '*4}],did)
+  with patch.object(start,'ROOT',self.root),patch.object(start.subprocess,'run') as ocr:
+   result=start.import_material({'name':'Other-name.pdf','pdf':base64.b64encode(raw).decode()})
+  self.assertEqual(result['name'],'Original.pdf');ocr.assert_not_called()
+ def test_custom_subject_keeps_evidence_validation_and_rejects_incomplete_tasks(self):
+  text='Direct Attached Storage verbindet Speicher direkt mit einem Server über SAS. RAID 5 nutzt bei gleich großen Festplatten n minus eins Platten für Nutzdaten.'
+  source={'text':text,'sourceName':'Eigener Text','sourcePage':1,'documentId':'abc'}
+  q={'type':'selfcheck','prompt':'Wie ist DAS angeschlossen?','answer':'Direkt am Server über SAS.','subtopic':'DAS','objective':'DAS erklären','explanation':'Direkter Speicheranschluss über SAS.','evidence':text,'sourceId':1,'points':1,'options':[],'correctOptions':[],'optionReasons':[],'rubric':[{'text':'Direkten Anschluss nennen','points':1}]}
+  self.assertEqual(ai.validate(dict(q),[source],'EVP10b')['documentId'],'abc')
+  with self.assertRaises(ValueError):ai.validate({**q,'evidence':'Erfundene Behauptung ohne Beleg.'},[source],'EVP10b')
+  with self.assertRaisesRegex(ValueError,'Auswahlkriterien'):ai.validate({**q,'type':'case','prompt':'Welche Speicherlösung ist am besten?'},[source],'EVP10b')
+  with self.assertRaisesRegex(ValueError,'Festplattenkapazitäten'):ai.validate({**q,'type':'calculation','prompt':'Berechne die prozentuale Steigerung beim RAID 5 mit vier statt drei Platten.'},[source],'EVP10b')
+ def test_storage_templates_cover_six_formats_only_with_selected_evidence(self):
+  text='DAS nutzt eine Punkt-zu-Punkt-Verbindung über SAS direkt zum Server. Die SAS-Verbindung ist auf zehn Meter begrenzt. Ein Fibre-Channel-HBA übernimmt die Rolle eines Controllers im SAN. NAS bietet Dateizugriff über SMB/CIFS und NFS. RAID-Parität wird mit XOR berechnet. Rekonstruktion von B erfolgt durch A XOR Parität. Ein RAID 5 mit drei Platten nutzt bei Begrenzung auf die Kapazität der kleinsten Festplatte 2 TB. Bei gleich großen Platten steigt die Kapazität von drei auf vier RAID 5 Platten um 50 %. RAID 10 fällt aus, wenn beide Platten eines Spiegelpaares ausfallen. Eine intakte Spiegelplatte liefert Daten für den Rebuild.'
+  source={'text':text,'sourceName':'Selbst verfasster Speichertest','sourcePage':1,'documentId':'test'}
+  raw=ai.source_templates.storage_candidates([{'sourceId':1,'quote':text}])
+  qs=[ai.validate(ai.canonical(q,'EVP10b'),[source],'EVP10b') for q in raw]
+  self.assertEqual(len(qs),10);self.assertEqual({q['type'] for q in qs},{'choice','multi','selfcheck','truefalse','calculation','case'})
+  self.assertEqual(ai.source_templates.storage_candidates([{'sourceId':1,'quote':'Eine SQL-Tabelle enthält Datensätze.'}]),[])
+  doc=ms.put('Eigener Speichertest',[{'text':text}]);ai.JOBS['storage']={'status':'running'}
+  with patch.object(ai,'model',side_effect=AssertionError('No model call for verified source templates')):ai.run_generation('storage',{'topic':'EVP10b','count':10,'targetSetId':'school-set','documentIds':[doc['id']]},{'provider':'ollama'})
+  job=ai.JOBS.pop('storage');self.assertEqual(job['status'],'done');self.assertEqual(job['result']['targetSetId'],'school-set');self.assertEqual(len(job['result']['questions']),10)
  def test_default_no_key(self):
   with patch.object(ai,'key',return_value=''),patch.object(ai,'json_request',return_value={'models':[{'name':ai.LOCAL_MODEL}]}):
    s=ai.status();self.assertEqual(s['provider'],'ollama');self.assertTrue(s['ready']);self.assertFalse(s['openaiAvailable'])
@@ -197,6 +235,23 @@ class LocalAI(unittest.TestCase):
   job=ai.JOBS.pop('repair');self.assertEqual(job['status'],'done');self.assertEqual(len(job['result']['questions']),10)
   self.assertEqual(len(repairs),1);self.assertTrue(all(q['answer']=='Primärschlüssel' for q in job['result']['questions']))
 
+ def test_interrupted_generation_keeps_verified_questions_and_target_set(self):
+  ms.put('Eigene SQL-Grundlagen',[{'text':'SQL: CHAR hat feste Länge; VARCHAR für Telefonnummer. SELECT COUNT(*) FROM Windrad WHERE IDWindpark = 102; CREATE TABLE erzeugt Tabellen. ALTER TABLE Kunden ADD COLUMN Email VARCHAR(100). FOREIGN KEY REFERENCES Ziel. DELETE FROM löscht Datensätze. UPDATE aktualisiert Daten. Ein Datenbanksystem(DBS) besteht aus Datenbankmanagementsystem(DBMS) und Datenbank. AVG(Wert) berechnet das arithmetische Mittel. SUM(Wert) berechnet die Summe.'}])
+  ai.JOBS['interrupted']={'status':'running'}
+  with patch.object(ai,'model',side_effect=TimeoutError('test outage')):ai.run_generation('interrupted',{'topic':'Datenbanken','count':20,'targetSetId':'existing-set'},{'provider':'ollama'})
+  result=ai.JOBS.pop('interrupted')
+  self.assertEqual(result['status'],'done');self.assertGreater(len(result['result']['questions']),0)
+  self.assertEqual(result['result']['targetSetId'],'existing-set');self.assertTrue(result['result']['warnings'])
+  saved=json.loads((self.root/'.local-data/generated/interrupted.json').read_text());self.assertEqual(saved['targetSetId'],'existing-set')
+  previous=saved['questions'][0]['prompt'];ai.JOBS['excluded']={'status':'running'}
+  with patch.object(ai,'model',side_effect=TimeoutError('test outage')):ai.run_generation('excluded',{'topic':'Datenbanken','count':20,'existingPrompts':[previous]},{'provider':'ollama'})
+  excluded=ai.JOBS.pop('excluded')['result'];self.assertNotIn(previous,[q['prompt'] for q in excluded['questions']])
+  self.assertEqual(len(excluded['questions']),len(saved['questions'])-1)
+ def test_same_short_answer_and_rephrased_task_are_not_repeated(self):
+  a={'prompt':'Wie viele Festplatten sind zur Erstellung eines RAID 5 erforderlich?','answer':'Mindestens 3 Festplatten.'}
+  b={'prompt':'Wie viele Festplatten sind mindestens für die Erstellung eines RAID 5 erforderlich?','answer':'Mindestens 3 Festplatten.'}
+  self.assertTrue(ai.same_learning_question(a,b))
+  self.assertFalse(ai.same_learning_question({'prompt':'Ist DAS direkt am Server angeschlossen?','answer':'Richtig'},{'prompt':'Kann eine Festplatte bei RAID 5 ausfallen?','answer':'Richtig'}))
  def test_job_resume(self):
   folder=self.root/'.local-data'/'generated';folder.mkdir(parents=True);jid='a'*32
   (folder/(jid+'.json')).write_text(json.dumps({'questions':[],'topic':'Datenbanken'}))

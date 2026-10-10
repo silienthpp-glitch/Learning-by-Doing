@@ -207,7 +207,7 @@ function rows(key){
 }
 function setCard(s){
   const list=bySet(s.id),sources=state.sources.filter(x=>x.setId===s.id).length,deadline=deadlineText(s.date);
-  return '<article class="set-card"><div class="topic-line"><span class="tag">'+esc(s.kind)+'</span>'+(s.date?'<small title="'+esc(formatDate(s.date))+'">'+esc(deadline)+' · '+esc(formatDate(s.date))+'</small>':'')+'</div><h3>'+esc(s.name)+'</h3><p>'+esc(s.subject)+'</p><progress max="100" value="'+pct(list)+'"></progress><div class="small">'+pct(list)+'% sicher · '+list.length+' Karten/Fragen · '+sources+' Dateien</div><div class="actions compact"><button data-set-learn="'+esc(s.id)+'">Lernen</button><button class="quiet" data-set-delete="'+esc(s.id)+'">Löschen</button></div></article>';
+  return '<article class="set-card"><div class="topic-line"><span class="tag">'+esc(s.kind)+'</span>'+(s.date?'<small title="'+esc(formatDate(s.date))+'">'+esc(deadline)+' · '+esc(formatDate(s.date))+'</small>':'')+'</div><h3>'+esc(s.name)+'</h3><p>'+esc(s.subject)+'</p><progress max="100" value="'+pct(list)+'"></progress><div class="small">'+pct(list)+'% sicher · '+list.length+' Karten/Fragen · '+sources+' Dateien</div><div class="actions compact"><button data-set-learn="'+esc(s.id)+'">Lernen</button>'+(sources?'<button class="quiet" data-set-create="'+esc(s.id)+'">Fragen erstellen</button>':'')+'<button class="quiet" data-set-delete="'+esc(s.id)+'">Löschen</button></div></article>';
 }
 
 
@@ -640,7 +640,8 @@ function bind(){
   document.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>start(b.dataset.start));
   document.querySelector('#motivation-next')?.addEventListener('click',()=>{state.quoteShift=(Number(state.quoteShift)||0)+1;save();refreshMotivation();});
   document.querySelectorAll('[data-topic]').forEach(b=>b.onclick=()=>start('learn',{topic:b.dataset.topic}));
-  document.querySelectorAll('[data-set-learn]').forEach(b=>b.onclick=()=>start('learn',{setId:b.dataset.setLearn}));
+  document.querySelectorAll('[data-set-create]').forEach(b=>b.onclick=()=>LearningAI.createFromSet(b.dataset.setCreate));
+  document.querySelectorAll('[data-set-learn]').forEach(b=>b.onclick=()=>bySet(b.dataset.setLearn).length?start('learn',{setId:b.dataset.setLearn}):LearningAI.createFromSet(b.dataset.setLearn));
   document.querySelectorAll('[data-set-delete]').forEach(b=>b.onclick=()=>deleteSet(b.dataset.setDelete));
   document.querySelectorAll('[data-game]').forEach(b=>b.onclick=()=>startGame(b.dataset.game));
   document.querySelector('#set-form')?.addEventListener('submit',e=>{e.preventDefault();createSet(e.currentTarget)});

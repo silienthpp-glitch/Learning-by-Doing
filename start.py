@@ -117,7 +117,10 @@ def import_material(data):
         except Exception:raise ValueError('PDF-Datei nicht lesbar.') from None
         if len(raw)>15_000_000 or not raw.startswith(b'%PDF'):raise ValueError('Bitte eine gültige PDF bis 15 MB wählen.')
         folder=ROOT/'.local-data'/'uploads';folder.mkdir(parents=True,exist_ok=True)
-        path=folder/(hashlib.sha256(raw).hexdigest()+'.pdf')
+        digest=hashlib.sha256(raw).hexdigest()
+        existing=next((d for d in material_store.all_docs() if d['id']==digest and any(len(p['text'].strip())>=80 for p in d['pages'])),None)
+        if existing:return {'id':existing['id'],'name':existing['name'],'pages':len(existing['pages']),'topics':material_store.document_topics(existing)}
+        path=folder/(digest+'.pdf')
         if not path.exists():path.write_bytes(raw)
         python=ROOT/'.runtime'/'python'/'bin'/'python'
         if not python.exists():raise ValueError('PDF-Texterkennung noch nicht eingerichtet. Bitte TXT importieren oder Ollama-einrichten.command ausführen.')
