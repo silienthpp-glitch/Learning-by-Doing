@@ -10,6 +10,12 @@ import threading
 import webbrowser
 from urllib.parse import urlsplit
 import teacher_engine
+import ai_service
+import material_store
+import base64
+import hashlib
+import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parent
 TOKEN = secrets.token_urlsafe(32)
@@ -48,35 +54,53 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if not self.local_request():
             return self.send_json(403, {'error': 'Nur über localhost oder 127.0.0.1 öffnen.'})
-        if self.path == '/api/teacher/status':
-            try:
-                return self.send_json(200, {**teacher_engine.config(), 'token': TOKEN, 'version': 5})
-            except (ValueError, OSError):
-                return self.send_json(200, {'ready': False, 'provider': 'disabled', 'error': 'ai-config.json ist nicht lesbar oder ungültig.', 'version': 5})
+        if self.path in ('/api/teacher/status','/api/ai/status'):
+            try:return self.send_json(200,{**ai_service.status(),'token':TOKEN,'version':6})
+            except (ValueError,OSError):return self.send_json(200,{'ready':False,'provider':'ollama','error':'KI-Einstellungen nicht lesbar.','token':TOKEN,'version':6})
+        if self.path == '/api/materials':
+            result=material_store.catalog()
+            progress=ROOT/'.local-data'/'index-status.json'
+            if progress.exists():
+                try:result['index']=json.loads(progress.read_text())
+                except ValueError:pass
+            return self.send_json(200,result)
+        if self.path.startswith('/api/jobs/'):
+            try:return self.send_json(200,ai_service.job(self.path.rsplit('/',1)[-1]))
+            except ValueError as error:return self.send_json(404,{'error':str(error)})
         if self.path.startswith('/api/'):
             return self.send_json(404, {'error': 'Unbekannte Funktion.'})
         super().do_GET()
 
     def do_POST(self):
         if not self.local_request() or self.headers.get('X-Teacher-Token') != TOKEN:
-            return self.send_json(403, {'error': 'Freigabe abgelaufen. Seite neu laden.'})
-        if self.path != '/api/teacher/generate':
+            return self.send_json(403, {'error': 'Verbindung zum Lernserver wurde erneuert. Seite neu laden und erneut versuchen.'})
+        if self.path not in ('/api/teacher/generate','/api/ai/settings','/api/sets','/api/grade','/api/materials/upload'):
             return self.send_json(404, {'error': 'Unbekannte Funktion.'})
         if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
             return self.send_json(415, {'error': 'JSON erforderlich.'})
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 400000:
+            if not 0 < length <= 25_000_000:
                 raise ValueError('Anfrage zu groß oder leer.')
             self.connection.settimeout(15)
             data = json.loads(self.rfile.read(length))
-            teacher_engine.validate_request(data)
+            if not isinstance(data,dict):raise ValueError()
+            if self.path=='/api/teacher/generate':teacher_engine.validate_request(data)
         except (ValueError, OSError):
             return self.send_json(400, {'error': 'Ungültige Anfrage. Textumfang und Freigabe prüfen.'})
+        if self.path != '/api/teacher/generate':
+            try:
+                if self.path=='/api/ai/settings':result=ai_service.select(data)
+                elif self.path=='/api/sets':result=ai_service.begin(data)
+                elif self.path=='/api/grade':result=ai_service.grade(data)
+                else:result=import_material(data)
+                return self.send_json(200,result)
+            except ValueError as error:return self.send_json(422,{'error':str(error)})
+            except Exception:return self.send_json(500,{'error':'Verarbeitung fehlgeschlagen. Deine gespeicherten Daten bleiben erhalten.'})
         if not GENERATION_LOCK.acquire(blocking=False):
             return self.send_json(409, {'error': 'Es läuft bereits eine Erstellung. Bitte deren Ergebnis abwarten.'})
         try:
-            pack = teacher_engine.generate(data)
+            pack = teacher_engine.generate(data,caller=lambda cfg,instructions,payload: ai_service.model(cfg,instructions,payload,teacher_engine.schema_for(payload.get('mode','mixed'))),cfg=ai_service.cfg_for(data))
             self.send_json(200, pack)
         except ValueError as error:
             self.send_json(422, {'error': str(error)})
@@ -84,6 +108,26 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(500, {'error': 'Erstellung fehlgeschlagen. Es wurden keine Fragen gespeichert. Lokale KI-Konfiguration prüfen.'})
         finally:
             GENERATION_LOCK.release()
+
+
+def import_material(data):
+    name=str(data.get('name','Unterlage'))[:250]
+    if 'pdf' in data:
+        try:raw=base64.b64decode(data['pdf'],validate=True)
+        except Exception:raise ValueError('PDF-Datei nicht lesbar.') from None
+        if len(raw)>15_000_000 or not raw.startswith(b'%PDF'):raise ValueError('Bitte eine gültige PDF bis 15 MB wählen.')
+        folder=ROOT/'.local-data'/'uploads';folder.mkdir(parents=True,exist_ok=True)
+        path=folder/(hashlib.sha256(raw).hexdigest()+'.pdf')
+        if not path.exists():path.write_bytes(raw)
+        python=ROOT/'.runtime'/'python'/'bin'/'python'
+        if not python.exists():raise ValueError('PDF-Texterkennung noch nicht eingerichtet. Bitte TXT importieren oder Ollama-einrichten.command ausführen.')
+        try:
+            result=subprocess.run([str(python),'-B',str(ROOT/'index_materials.py'),'--pdf',str(path),'--name',name],capture_output=True,text=True,timeout=1200)
+            if result.returncode:raise ValueError('PDF konnte nicht ausgelesen werden. Möglicherweise beschädigt oder passwortgeschützt.')
+            return json.loads(result.stdout)
+        except subprocess.TimeoutExpired:raise ValueError('Texterkennung dauert zu lange. PDF bitte in kleinere Dateien aufteilen.') from None
+    doc=material_store.put(name,data.get('pages'))
+    return {'id':doc['id'],'name':doc['name'],'pages':len(doc['pages']),'topics':doc['topics']}
 
 
 def main():

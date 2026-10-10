@@ -18,3 +18,8 @@ dist/private-ihk/
 .openai-api-key
 
 .ki-setup-*
+
+# Lokale KI, Originale und durchsuchbare Auszüge
+.runtime/
+.local-data/
+ai-settings.json

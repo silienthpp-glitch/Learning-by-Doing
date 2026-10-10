@@ -65,7 +65,7 @@ class HttpTests(unittest.TestCase):
         status,raw=self.request('GET','/api/teacher/status');data=json.loads(raw)
         self.assertEqual(status,200);self.assertIn('token',data);self.assertNotIn('OPENAI_API_KEY',raw.decode())
     def test_post_success_without_real_model(self):
-        with patch.object(engine,'generate',return_value=PACK):
+        with patch.object(engine,'generate',return_value=PACK), patch.object(start.ai_service,'cfg_for',return_value={'provider':'ollama'}):
             status,raw=self.request('POST','/api/teacher/generate',json.dumps(REQUEST),{'Content-Type':'application/json','X-Teacher-Token':start.TOKEN})
         self.assertEqual(status,200);self.assertEqual(json.loads(raw),PACK)
     def test_private_config_not_served(self):

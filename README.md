@@ -26,13 +26,11 @@ Unter **Fächer & Lernsets** kannst du mehrere Dateien einem Lernset zuordnen:
 
 ### PDF, TXT und Markdown
 
-Textunterlagen werden zunächst lokal ausgelesen. Du wählst die Seiten für einen Themenabschnitt aus. Die neue semantische Fragenerstellung benötigt eine eingerichtete KI (OpenAI API oder lokales Ollama) und deine ausdrückliche Freigabe pro Import. Ohne Einrichtung werden keine Satzschablonen als Ersatzfragen erzeugt.
+PDF- und TXT-Unterlagen werden lokal gelesen und nach Themen erschlossen. Scan-PDFs erhalten lokale Texterkennung. Auf dem Dashboard wählst du Thema und 10, 20 oder 30 Fragen. Ollama mit Qwen3 8B ist Standard; OpenAI ist nur nach ausdrücklicher Auswahl möglich. Ohne passende Quellen entstehen keine allgemeinen Ersatzfragen.
 
-Offene Aufgaben enthalten Musterlösung und Punktkriterien. Multiple Choice enthält eine Erklärung zu jeder Antwortoption. Jeder Entwurf wird ein zweites Mal durch die KI geprüft; anschließend prüfst du ihn in der Vorschau. Diese Prüfungen können fachliche Fehler nicht ausschließen. Offene Antworten bewertest du selbst anhand der Kriterien, auch am Ende einer Probeprüfung.
+Die KI erstellt Aufgaben und prüft sie in einem zweiten Durchgang gegen die Textquellen. Unterstützt werden Single Choice, Mehrfachauswahl, Richtig/Falsch, Freitext, Rechenaufgaben und Praxisfälle. Offene Antworten werden anhand der Punktkriterien bewertet. Im Prüfungsmodus erscheinen Lösungen und Ergebnisse erst am Ende. KI-Prüfung und Texterkennung können Fehler enthalten; Quellenbeleg und Musterlösung bleiben einsehbar.
 
-**Einrichtung und Grenzen: [LEHRER-AUFGABEN.md](LEHRER-AUFGABEN.md).** Bereits gespeicherte automatisch erzeugte Fragen werden pausiert, bis du sie überarbeitet und freigegeben hast. Die Daten werden nicht gelöscht.
-
-Für PDFs wird PDF.js beim ersten PDF-Import aus einem CDN geladen. Dafür ist beim ersten PDF-Import eine Internetverbindung nötig. Die ausgewählte PDF-Datei wird dabei nicht zu einem Server hochgeladen, sondern im Browser gelesen. TXT, Markdown, JSON und das normale Lernen funktionieren weiterhin lokal.
+**Start und Einrichtung:** [LOKAL-LERNEN.md](LOKAL-LERNEN.md). Bestehende Lernsets und Browserdaten bleiben erhalten. Python-Server lokal starten; ein rein statischer Webserver unterstützt die KI-Endpunkte nicht.
 
 ### JSON-Fragen
 
@@ -61,7 +59,13 @@ Unterstützte Typen:
 - `choice` – Multiple Choice
 - `number` – eindeutige Zahl
 - `text` – exakte Textantwort oder Alias
-- `selfcheck` – Selbstkontroll-Lernkarte
+- `selfcheck` – offene Wissensfrage oder bisherige Selbstkontroll-Lernkarte
+- `multi` – mehrere richtige Optionen
+- `truefalse` – Richtig/Falsch
+- `calculation` – Rechenaufgabe mit Punktkriterien
+- `case` – Praxisfall mit Punktkriterien
+
+Die neuen KI-Formate verwenden `generatorVersion: 6`, bei Auswahlfragen `correctOptions`, bei offenen Aufgaben `rubric`. Ein selbst verfasstes Importbeispiel für alle sechs Formate liegt unter `tests/fixtures/six-types-import.json`.
 
 ## Lernlogik
 
@@ -168,15 +172,15 @@ Learning-by-Doing/
 
 Lerndaten werden mit `localStorage` im Browser gespeichert. Dazu gehören Lernfortschritt, Wiederholungsstände, eigene Fragen, Lernsets, Datei-Metadaten sowie Level-/Spielhistorie.
 
-Der Text einer importierten PDF/TXT-Datei wird in den daraus erzeugten Lernkarten gespeichert. Das Originaldokument selbst wird nicht als Datei im Browser-Speicher abgelegt.
+Neue PDF/TXT-Texte und importierte PDFs werden im privaten Projektordner `.local-data` gespeichert; Lernsets und Fortschritt bleiben im Browser. Das Originaldokument wird nicht als Datei im Browser-Speicher abgelegt. Beide Speicherbereiche sollten für einen Rechnerwechsel gesichert werden.
 
 Unter **Fortschritt** kannst du eine JSON-Sicherung herunterladen und später wiederherstellen.
 
 ## Grenzen der aktuellen Version
 
-Die Seite kann PDF-Inhalt lokal lesen und einfache Lernkarten daraus erzeugen, besitzt aber lokal kein Sprachmodell. Deshalb kann sie aus beliebigen Unterlagen noch keine hochwertigen komplexen Klausurfragen inklusive semantischer Freitextbewertung erzeugen.
+Die Seite verwendet ein separat gestartetes lokales Sprachmodell über Ollama. Texterkennung, Fragen und KI-Bewertungen können fachliche Fehler enthalten. Technische Prüfungen und ein zweiter KI-Durchgang reduzieren diese Fehler, ersetzen aber keine Prüfung anhand deiner Unterlagen. Werden nicht genügend belegte Fragen gefunden, wird die kleinere Zahl ausdrücklich angezeigt.
 
-Für besonders gute Lernsets gibt es zwei Wege:
+Zusätzlich zur lokalen Erstellung kannst du selbst geprüfte strukturierte Fragen als JSON importieren. Dafür gibt es zwei Wege:
 
 1. strukturierte Fragen samt Lösungen als JSON importieren,
 2. PDFs in ChatGPT bereitstellen und daraus passende Fragen, Erklärungen und Rechenwege erstellen lassen; anschließend kann die erzeugte JSON-Datei importiert werden.
