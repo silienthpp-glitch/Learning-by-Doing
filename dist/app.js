@@ -16,7 +16,7 @@ try{
 }catch{warn('Gespeicherte Daten konnten nicht geladen werden.');}
 
 function warn(t){const e=document.querySelector('#storage-warning');if(e)e.innerHTML='<p class="error-banner">'+esc(t)+'</p>'}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{warn('Der Browser kann deinen Fortschritt nicht speichern. Bitte exportiere eine Sicherung.')}}
+function save(){try{const today=new Date().toLocaleDateString('sv-SE');if(localStorage.getItem(KEY+'-snapshot-day')!==today){const previous=localStorage.getItem(KEY);if(previous){try{localStorage.setItem(KEY+'-snapshot',previous);localStorage.setItem(KEY+'-snapshot-day',today);}catch{}}}localStorage.setItem(KEY,JSON.stringify(state))}catch{warn('Der Browser kann deinen Fortschritt nicht speichern. Bitte exportiere eine Sicherung.')}}
 
 
 const MOTIVATION_QUOTES = [
@@ -256,7 +256,7 @@ function learn(route){
 
 function library(){
   app.innerHTML=head('Fächer, Klausuren und Tests.','Organisiere mehrere Fächer gleichzeitig und ordne jede Datei dem passenden Lernset zu.',state.sets.length+' Lernsets')+
-  '<div class="hint">Version 6 · Lokale KI und deine vorhandenen IHK-Unterlagen. Alte automatisch erzeugte Fragen sind bis zur Prüfung pausiert; Unterlagen und Fortschritt bleiben erhalten.</div><div class="two library-columns"><section class="card"><span class="tag">1 · LERNSET</span><h2>Neues Lernset anlegen</h2><p>Ein Lernset ist zum Beispiel eine Klausur, ein kurzer Test oder eine IHK-Prüfung.</p><form id="set-form" class="stack-form"><label>Name<input name="name" required maxlength="80" placeholder="z. B. Netzwerktechnik Klausur 2"></label><label>Fach<input name="subject" required maxlength="60" placeholder="z. B. Netzwerktechnik"></label><label>Art<select name="kind"><option>Klausur</option><option>Test</option><option>IHK</option><option>Sonstiges</option></select></label><label>Termin (optional)<input name="date" type="date"></label><button type="submit">Lernset anlegen</button></form></section>'+
+  '<div class="hint">Version 7 · Lokale KI und deine vorhandenen IHK-Unterlagen. Alte automatisch erzeugte Fragen sind bis zur Prüfung pausiert; Unterlagen und Fortschritt bleiben erhalten.</div><div class="two library-columns"><section class="card"><span class="tag">1 · LERNSET</span><h2>Neues Lernset anlegen</h2><p>Ein Lernset ist zum Beispiel eine Klausur, ein kurzer Test oder eine IHK-Prüfung.</p><form id="set-form" class="stack-form"><label>Name<input name="name" required maxlength="80" placeholder="z. B. Netzwerktechnik Klausur 2"></label><label>Fach<input name="subject" required maxlength="60" placeholder="z. B. Netzwerktechnik"></label><label>Art<select name="kind"><option>Klausur</option><option>Test</option><option>IHK</option><option>Sonstiges</option></select></label><label>Termin (optional)<input name="date" type="date"></label><button type="submit">Lernset anlegen</button></form></section>'+
   '<section class="card"><span class="tag">2 · DATEIEN</span><h2>Unterlagen hinzufügen</h2><p>PDF, TXT, Markdown oder strukturierte JSON-Fragen. Mehrere Dateien dürfen gleichzeitig gewählt werden.</p><form id="material-form" class="stack-form"><label>Lernset<select name="setId" id="material-set" required><option value="">Bitte wählen</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label><label>Fragentyp<select name="questionMode"><option value="mixed">Gemischt: offene Fragen und Multiple Choice</option><option value="choice">Nur Multiple Choice</option><option value="selfcheck">Nur offene Fragen</option></select></label><label>Dateien<input id="material-files" type="file" multiple accept=".pdf,.txt,.md,.json,application/pdf,application/json,text/plain,text/markdown" required></label><button type="submit" '+(state.sets.length?'':'disabled')+'>Dateien einlesen</button></form><p id="material-status" class="status-text">'+esc(message)+'</p><div class="hint"><strong>Wichtig:</strong> Multiple-Choice-Fragen können automatisch geprüft werden. PDF/TXT werden lokal gespeichert und bei Bedarf per Texterkennung gelesen. Erstelle danach oben ein Lernset zu deinem Thema. Lokale KI bewertet freie Antworten anhand der Musterlösung.</div></section></div>'+
   '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Deine Lernsets</h2><span class="small">Mehrere Fächer parallel möglich</span></div>'+(state.sets.length?'<div class="set-grid">'+state.sets.map(setCard).join('')+'</div>':'<div class="empty-state"><strong>Noch keine Lernsets.</strong><p>Lege oben dein erstes Lernset an.</p></div>')+'</section>'+
   '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Importierte Dateien</h2><span class="small">'+state.sources.length+' gespeichert</span></div>'+(state.sources.length?'<div class="source-list">'+[...state.sources].reverse().map(s=>'<div><strong>'+esc(s.name)+'</strong><span>'+esc(setById(s.setId)?.name||s.subject)+' · '+(s.cards||0)+' Lernkarten</span></div>').join('')+'</div>':'<p class="muted">Noch keine eigenen Dateien importiert.</p>')+'</section>';
@@ -279,7 +279,7 @@ function progress(){
   app.innerHTML=head('Du kommst voran.','Level, Fächer und Lernsets zeigen dir, wo du stehst.','Level '+l.n)+stats()+
   '<div class="two"><section class="card"><h2>Fortschritt je Fach</h2>'+rows('subject')+'</section><section class="card"><h2>Dein Lernprofil</h2><div class="big-number">'+acc+'%</div><p>Richtige Antworten bei '+n+' Versuchen.</p><p>'+questions().filter(q=>rec(q).attempts).length+' von '+questions().length+' Aufgaben ausprobiert.</p><h3>Level '+l.n+'</h3><progress max="'+l.step+'" value="'+l.cur+'"></progress><p class="small">'+l.cur+' von '+l.step+' XP bis zum nächsten Level.</p></section></div>'+
   '<section class="card" style="margin-top:24px"><h2>Lernsets</h2>'+(state.sets.length?'<div class="set-grid">'+state.sets.map(setCard).join('')+'</div>':'<p class="muted">Noch keine eigenen Lernsets vorhanden.</p>')+'</section>'+
-  '<section class="card" style="margin-top:24px"><h2>Fortschritt sichern</h2><div class="actions"><button id="export">Sicherung herunterladen</button><label class="file-button">Sicherung wiederherstellen<input id="restore" type="file" accept=".json,application/json"></label></div><p id="restore-status"></p></section>';
+  '<section class="card" style="margin-top:24px"><h2>Fortschritt sichern</h2><div class="actions"><button id="export">Sicherung herunterladen</button><button id="snapshot-export" class="quiet">Letzten automatisch gesicherten Stand herunterladen</button><label class="file-button">Sicherung ergänzen<input id="restore" type="file" accept=".json,application/json"></label></div><p class="small">Eine Sicherung enthält deine Lernsets, Fragen und Fortschritte. Original-PDFs bleiben im Projektordner und sollten zusätzlich gesichert werden. Beim Einlesen werden nur fehlende Inhalte ergänzt.</p><p id="restore-status"></p></section>';
 }
 
 function guide(){
@@ -649,6 +649,7 @@ function bind(){
   document.querySelector('#import')?.addEventListener('change',importJson);
   document.querySelector('#export')?.addEventListener('click',()=>download('learning-by-doing-sicherung.json',state));
   document.querySelector('#restore')?.addEventListener('change',restore);
+  document.querySelector('#snapshot-export')?.addEventListener('click',()=>{const snapshot=localStorage.getItem(KEY+'-snapshot');if(snapshot)download('learning-by-doing-automatische-sicherung.json',JSON.parse(snapshot));else warn('Noch kein automatischer Sicherungsstand vorhanden. Bitte aktuelle Sicherung herunterladen.');});
 }
 function download(name,value){const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),500)}
 async function restore(e){
@@ -659,9 +660,18 @@ async function restore(e){
     if(![1,2].includes(v.version))throw Error('Unbekannte Sicherungsversion.');
     if(!v.records||typeof v.records!=='object'||Array.isArray(v.records)||!Array.isArray(v.history)||!Array.isArray(v.custom))throw Error('Die Sicherungsdatei ist unvollständig oder beschädigt.');
     if(v.version===2&&(!Array.isArray(v.sets)||!Array.isArray(v.sources)||!Array.isArray(v.games)))throw Error('Die Sicherungsdatei enthält nicht alle benötigten Lernset-Daten.');
-    if(!confirm('Aktuelle Lerndaten durch diese Sicherung ersetzen?'))return;
-    state=v.version===2?{...blank(),...v}:{...blank(),...v,version:2,sets:[],sources:[],games:[]};
-    save();message='Sicherung erfolgreich wiederhergestellt.';render();
+    const incoming=v.version===2?{...blank(),...v}:{...blank(),...v,version:2,sets:[],sources:[],games:[]};
+    if(incoming.sets.some(x=>!x||typeof x.id!=='string'||typeof x.name!=='string')||incoming.sources.some(x=>!x||typeof x.id!=='string'||typeof x.name!=='string'))throw Error('Lernsets oder Dateien der Sicherung sind beschädigt.');
+    const additions=['sets','sources','custom'].map(k=>[k,incoming[k].filter(x=>x&&typeof x.id==='string'&&!state[k].some(y=>y.id===x.id))]);
+    const newQuestions=additions.find(x=>x[0]==='custom');newQuestions[1]=validate(newQuestions[1]);
+    if(!confirm('Sicherung ergänzen: '+additions.find(x=>x[0]==='sets')[1].length+' neue Lernsets und '+additions.find(x=>x[0]==='custom')[1].length+' neue Fragen. Vorhandene Inhalte und Fortschritte bleiben erhalten. Fortfahren?'))return;
+    download('learning-by-doing-vor-wiederherstellung.json',state);
+    for(const [k,rows] of additions)state[k].push(...rows);
+    const addedRecords=new Set();
+    for(const [qid,r] of Object.entries(incoming.records)){if(!['__proto__','constructor','prototype'].includes(qid)&&!Object.hasOwn(state.records,qid)&&r&&typeof r==='object'&&Number.isInteger(r.attempts)&&Number.isInteger(r.correct)&&r.attempts>=0&&r.correct>=0&&r.correct<=r.attempts){state.records[qid]=r;addedRecords.add(qid);}}
+    const known=new Set(state.history.map(h=>h.id+':'+h.at));
+    state.history.push(...incoming.history.filter(h=>{if(!h||!addedRecords.has(h.id)||!Number.isFinite(h.at)||known.has(h.id+':'+h.at))return false;known.add(h.id+':'+h.at);return true;}));state.history.sort((a,b)=>a.at-b.at);
+    save();message='Sicherung ergänzt. Vorhandene Inhalte und Fortschritte wurden beibehalten; vorheriger Stand wurde heruntergeladen.';render();document.querySelector('#restore-status').textContent=message;
   }catch(err){
     if(t)t.textContent='Wiederherstellung nicht möglich: '+err.message;
   }

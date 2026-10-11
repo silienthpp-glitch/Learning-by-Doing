@@ -55,8 +55,8 @@ class Handler(SimpleHTTPRequestHandler):
         if not self.local_request():
             return self.send_json(403, {'error': 'Nur über localhost oder 127.0.0.1 öffnen.'})
         if self.path in ('/api/teacher/status','/api/ai/status'):
-            try:return self.send_json(200,{**ai_service.status(),'token':TOKEN,'version':6})
-            except (ValueError,OSError):return self.send_json(200,{'ready':False,'provider':'ollama','error':'KI-Einstellungen nicht lesbar.','token':TOKEN,'version':6})
+            try:return self.send_json(200,{**ai_service.status(),'token':TOKEN,'version':7,'projectId':str(ROOT)})
+            except (ValueError,OSError):return self.send_json(200,{'ready':False,'provider':'ollama','error':'KI-Einstellungen nicht lesbar.','token':TOKEN,'version':7,'projectId':str(ROOT)})
         if self.path == '/api/materials':
             result=material_store.catalog()
             progress=ROOT/'.local-data'/'index-status.json'
@@ -144,6 +144,8 @@ def main():
         if error.errno == errno.EADDRINUSE:
             raise SystemExit(f'Port {args.port} belegt. Vorhandene Seite öffnen: http://127.0.0.1:{args.port}\nFür ein Update den bisherigen Server mit Strg+C beenden und erneut starten.')
         raise SystemExit('Server konnte nicht starten: ' + str(error))
+    folder=ROOT/'.local-data';folder.mkdir(exist_ok=True)
+    (folder/'start-settings.json').write_text(json.dumps({'port':args.port}))
     url = f'http://127.0.0.1:{args.port}'
     print(f'Learning by Doing: {url}\nZum Beenden Strg+C drücken.', flush=True)
     if args.open_browser:

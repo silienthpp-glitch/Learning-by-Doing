@@ -50,3 +50,15 @@ Validierung: 59 Python-Tests, 21 JavaScript-Tests sowie Syntaxprüfungen bestand
 - Server liefert .env, .openai-api-key, private Materialbibliothek und ai-config.json nicht aus (404).
 - Alle 36 lokalen Projektdateien stimmen vor dieser Berichtsergänzung exakt mit dem veröffentlichten Änderungsbranch überein. Der Hauptordner wurde auf den vorhandenen Branch codex/source-grounded-study-import mit origin als Upstream umgestellt, ohne Dateiinhalte oder private Unterlagen zu ersetzen.
 - Auf den zuvor verwendeten Ports 8765 und 18769 antwortete während dieser Prüfung kein Server. Zur Nutzung muss der Lernserver im Hauptordner gestartet werden; denselben Browser und Port wie zuvor verwenden, damit bestehende Browser-Lernstände sichtbar bleiben.
+
+## Version 7: vollständige 30-Fragen-Prüfung (11.10.2026)
+
+- 68 Python- und 21 JavaScript-Regressionstests bestanden; JavaScript- und Starter-Syntax geprüft. Keine Abhängigkeit ergänzt.
+- Regulärer Browser-Button: bestehendes Test-Lernset mit vier bereits lokal importierten RAID-/Speicher-Schulunterlagen ausgewählt; 30 unterschiedliche Quellenaufgaben erstellt. Alle Belege stammen ausschließlich aus diesen vier Dateien. 6 Single Choice, 3 Multiple Choice, 2 Richtig/Falsch, 6 Rechnungen, 4 Praxisfälle und 9 freie Antworten.
+- Die 30 Aufgaben verwenden eigene geprüfte Lernvorlagen, sofern deren Fachinhalte in den ausgewählten Quellen vorhanden sind. Die lokale KI ergänzt andere Themen bei Bedarf; dieser Test bestätigt nicht jede beliebige andere Unterlage.
+- Alle 30 Musterantworten über die echte lokale API bewertet: 48/48 Punkte. Freie Antworten mit qwen3:8b, Auswahlaufgaben mit festen Lösungen. Keine OpenAI-Anfrage.
+- Lernmodus: Auswahl und freie XOR-Antwort geprüft; Selbstkorrektur 2/2 → 1/2 → 2/2 aktualisiert denselben Versuch. Nächste Frage und Fortsetzen nach Neuladen funktionieren.
+- Vollständige Browser-Probeprüfung: 30/30 Antworten, NAS absichtlich falsch/leer beantwortet, sonst Musterantworten. Erwartet und erhalten: 41/48 Punkte, gerundet 85 %, NAS 0 %, übrige Bereiche 100 %. Lösungen erst am Ende; NAS wird zur Wiederholung empfohlen.
+- Nach Neuladen 30 Fragen, vier Dateien und 33 Versuche erhalten. Export enthält diese Daten. Ergänzender Sicherungsimport fügt ein eigenes Test-Lernset und eine eigene Frage hinzu, erhält alle 33 Versuche und das bisherige Set. Vorheriger Stand wird zusätzlich heruntergeladen.
+- Gemeinsamer Starter erkennt den bestehenden Server und startet keine zweite Ollama-Instanz. Fehlende Laufzeit, ungültiger Port, fremder Projektserver und gespeicherte Adresse werden zusätzlich automatisiert geprüft. Der echte Kaltstart mit zuvor beendetem Ollama wurde nicht getestet, um den bestehenden Benutzerprozess nicht zu unterbrechen.
+- Originale, OCR-Auszüge, Sicherungen, Modellgewichte und Schlüssel bleiben lokal und von Git ausgeschlossen.

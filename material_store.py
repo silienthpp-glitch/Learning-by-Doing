@@ -55,7 +55,7 @@ def document_topics(doc):
 
 def catalog():
     docs=all_docs();topics=[document_topics(d) for d in docs]
-    return {'documents':[{'id':d['id'],'name':d['name'],'pages':len(d['pages']),'topics':ts,'readablePages':sum(len(p['text'].strip())>=80 for p in d['pages'])} for d,ts in zip(docs,topics)],
+    return {'documents':[{'id':d['id'],'name':d['name'],'pages':len(d['pages']),'topics':ts,'subtopics':subtopics_for(' '.join(p['text'] for p in d['pages'])),'readablePages':sum(len(p['text'].strip())>=80 for p in d['pages'])} for d,ts in zip(docs,topics)],
         'topics':[{'name':t,'documents':sum(t in ts for ts in topics)} for t in TOPICS]}
 
 def retrieve_selected(topic,document_ids,limit=30):
@@ -124,3 +124,22 @@ def related_context(source,topic):
     if not candidates:return []
     _,_,doc,page,text=max(candidates,key=lambda item:(item[0],item[1]))
     return [{'document':doc['name'],'page':page['page'],'text':text[:4000]}]
+
+SUBTOPICS={
+ 'DAS':['direct attached storage','punkt-zu-punkt','sas'],
+ 'SAN':['storage area network','fibre-channel','fibre channel'],
+ 'NAS':['network attached storage','smb/cifs','nfs'],
+ 'RAID':['raid','parität','spiegelpaar'],
+ 'SQL':['sql','select ','varchar','foreign key'],
+ 'Normalisierung':['normalform','normalisierung'],
+ 'IP-Adressierung':['subnetz','cidr','ipv4','ipv6'],
+ 'IT-Sicherheit':['verschlüssel','firewall','schutzziel']}
+def subtopics_for(text):
+    return [name for name,terms in SUBTOPICS.items() if any(re.search(keyword_pattern(t),text.lower()) for t in terms)]
+
+def analyze_sources(sources):
+    groups={}
+    for s in sources:
+        for topic in subtopics_for(s['text']):
+            groups.setdefault(topic,set()).add(s['documentId'])
+    return [{'name':topic,'documents':len(ids)} for topic,ids in groups.items()]

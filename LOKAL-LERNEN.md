@@ -125,3 +125,17 @@ Die bisherigen KI-Frageformate aus `main` werden beim Lernen angepasst, ohne ges
 Die Fragen werden dem vorhandenen Lernset hinzugefügt. Name, Termin, bisherige Aufgaben und Lernfortschritt bleiben erhalten. Fachbezeichnungen wie EVP10b werden unterstützt; es werden ausschließlich die diesem Lernset zugeordneten Dokumente ausgewertet. Dateien können mehreren Lernsets zugeordnet werden. Bei einer KI-Unterbrechung werden bereits geprüfte Fragen mit einem Hinweis gespeichert. Ohne lesbaren Text oder passende Belege erscheint eine Fehlermeldung; fehlende Fragen werden nicht mit allgemeinen Aufgaben aufgefüllt.
 
 Nach einem Code-Update den bisherigen Lernserver im Terminal mit Strg+C beenden, im Ordner `/Users/akwesi/Desktop/Learning-by-Doing-neu` `python3 -B start.py --port 8765 --open-browser` ausführen und die bisherige Browserseite mit Cmd+Shift+R neu laden. Verwende denselben Browser und dieselbe Adresse wie zuvor, damit deine dort gespeicherten Lernsets erhalten bleiben.
+
+## Verbesserter Start und Lernablauf (Version 7)
+
+Im Hauptordner `Learning-by-Doing-neu` genügt ein Doppelklick auf `Start.command`. Der Starter prüft Ollama, startet die bereits installierte lokale Laufzeit bei Bedarf und öffnet die Lernplattform. Die zuletzt verwendete Adresse bleibt erhalten, damit die Browser-Lerndaten wieder sichtbar sind. Ein bereits laufender Server desselben Projekts wird wiederverwendet. Nach einem Code-Update den alten Lernserver einmal mit Strg+C beenden.
+
+Im Terminal aus diesem Projektordner: `python3 -B launcher.py`. Für die bisherige Adresse: `python3 -B launcher.py --port 18769`.
+
+Wähle dein vorhandenes Lernset, 10, 20 oder 30 Fragen und die Schwierigkeit. Grundlagen bieten Orientierung zur Antwortstruktur; Klausurtraining mischt Aufgabenformen; Prüfungsniveau entfernt zusätzliche Formelhilfen aus passenden Rechenaufgaben. Die Auswahl ist eine Lernhilfe, keine offizielle IHK-Schwierigkeitsklassifizierung. Vorhandene Fragen werden ergänzt, nicht ersetzt.
+
+Die vier RAID-/Speicher-Unterlagen ermöglichen 30 unterschiedliche eigene Lernvorlagen mit passenden lokalen Quellenbelegen. Bei anderen Unterlagen ergänzt die ausgewählte KI die Entwürfe; eine vollständige Anzahl wird nur bei ausreichenden geprüften Inhalten erreicht. Die Anzeige nennt erkannte Unterthemen und verworfene Entwürfe.
+
+Freie Antworten bleiben vorläufige KI-Einschätzungen. Im Lernmodus kannst du unter „Bewertung anhand der Kriterien berichtigen“ die Teilpunkte selbst prüfen. Eine Berichtigung ändert denselben Versuch, zählt keine zusätzliche Antwort und passt die Wiederholung an. Im Prüfungsmodus erscheint die Lösung weiterhin erst am Ende.
+
+Unter Fortschritt kannst du den aktuellen oder letzten automatisch gesicherten Browserstand herunterladen. Eine Sicherungsdatei wird nach Vorschau bestätigtermaßen **ergänzend** eingelesen: vorhandene Inhalte und Fortschritte gewinnen bei gleichen Kennungen. Vor dem Ergänzen wird der aktuelle Stand zusätzlich heruntergeladen. Original-PDFs und die lokale Textbibliothek müssen separat mit dem Projektordner gesichert werden.
