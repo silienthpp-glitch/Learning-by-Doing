@@ -304,8 +304,11 @@ body.dark .hint { border-color: #2b3852; }
   .source-list span { text-align: left; }
 }
 
+/* Versteckte KI-Freigabe muss auch bei label-Layout verborgen bleiben. */
+[hidden] { display: none !important; }
 
-/* KI-Erweiterung */
+/* KI-Erweiterung – bestehende Stile erhalten */
+
 .ai-builder{border:1px solid rgba(35,74,232,.28);background:linear-gradient(145deg,var(--panel),var(--panel-2))}
 .ai-builder .section-head{align-items:flex-start;gap:20px}
 .ai-state{display:block;font-weight:800;font-size:.92rem}
