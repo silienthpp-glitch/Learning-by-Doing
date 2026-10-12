@@ -19,8 +19,59 @@ function confirmAction(message,positive='Bestätigen'){
   });
 }
 function announce(t){const node=document.querySelector('#ui-announcer');if(node)node.textContent=t;const visible=document.querySelector('#visible-notice');if(visible){visible.textContent=t;visible.hidden=!t}}
-function persistRound(){try{if(session)localStorage.setItem(ROUND_KEY,JSON.stringify({...session,questionIds:session.queue.map(q=>q.id),queue:undefined,savedAt:Date.now()}));else localStorage.removeItem(ROUND_KEY)}catch{}}
-function savedRound(){try{const r=JSON.parse(localStorage.getItem(ROUND_KEY)||'null');if(!r||!Array.isArray(r.questionIds)||!r.questionIds.length)return null;const lookup=new Map(questions().map(q=>[q.id,q]));const queue=r.questionIds.map(k=>lookup.get(k));if(queue.some(q=>!q))return null;return{mode:r.mode,queue,index:Math.min(r.index||0,queue.length-1),answered:false,results:r.results||[]}}catch{return null}}
+/**
+ * Speichert nur kleine Metadaten der laufenden Runde.
+ * Die Fragen selbst liegen schon in state.custom bzw. questions.js und werden
+ * deshalb nicht ein zweites Mal im Browser-Speicher abgelegt.
+ */
+function persistRound(){
+  try{
+    if(!session){localStorage.removeItem(ROUND_KEY);return}
+    const snapshot={
+      mode:session.mode,
+      questionIds:session.queue.map(q=>q.id),
+      index:session.index,
+      drafts:session.drafts||{},
+      results:(session.results||[]).map(r=>({
+        questionId:r.q?.id||r.questionId,
+        answer:r.answer,
+        correct:r.correct,
+        rating:r.rating,
+        score:r.score,
+        feedback:r.feedback,
+        modelAnswer:r.modelAnswer
+      })),
+      savedAt:Date.now()
+    };
+    localStorage.setItem(ROUND_KEY,JSON.stringify(snapshot));
+  }catch{
+    // Der Browser kann voll sein. Die laufende Runde funktioniert dann weiter,
+    // auch wenn ein erneutes Laden sie möglicherweise nicht wiederherstellt.
+  }
+}
+/**
+ * Stellt pausierte Runden anhand ihrer Frage-IDs wieder her.
+ * Ältere gespeicherte Runden enthalten direkt vollständige Fragen in results.
+ * Beide Formate bleiben lesbar, damit keine bestehenden Lernstände verloren gehen.
+ */
+function savedRound(){
+  try{
+    const snapshot=JSON.parse(localStorage.getItem(ROUND_KEY)||'null');
+    if(!snapshot||!Array.isArray(snapshot.questionIds)||!snapshot.questionIds.length)return null;
+    const lookup=new Map(questions().map(q=>[q.id,q]));
+    const queue=snapshot.questionIds.map(key=>lookup.get(key));
+    if(queue.some(q=>!q))return null;
+    const results=(snapshot.results||[]).map(result=>{
+      const question=result.q||lookup.get(result.questionId);
+      return question?{...result,q:question}:null;
+    }).filter(Boolean);
+    return{
+      mode:snapshot.mode||'learn',
+      queue,index:Math.min(Math.max(snapshot.index||0,0),queue.length-1),
+      answered:false,results,drafts:snapshot.drafts||{}
+    };
+  }catch{return null}
+}
 function resumeRound(){const r=savedRound();if(r){session=r;render()}else{announce('Keine gespeicherte Lernrunde gefunden.');location.hash='learn'}}
 
 
@@ -83,35 +134,50 @@ function learningInsights(){
   const last=h[h.length-1],lastQ=last?questions().find(q=>q.id===last.id):null;
   return{strengths,weaknesses,last,lastQ};
 }
+/**
+ * Bereitet ausschließlich lokale Unterlagen als KI-Kontext vor.
+ * Das feste Zeichenlimit verhindert große Ollama-Anfragen und unnötigen RAM-Bedarf.
+ * Mit usedChars statt wiederholtem parts.join() wächst die Laufzeit annähernd linear.
+ */
 function materialContext(subject,topic,setId=''){
-  const term=String(topic||'').trim().toLowerCase(),parts=[],seen=new Set();
-  let sources=(state.sources||[]);
-  if(setId)sources=sources.filter(s=>s.setId===setId);
-  else if(subject)sources=sources.filter(s=>(s.subject||'').toLowerCase()===subject.toLowerCase());
-  for(const s of sources){
-    const excerpt=String(s.excerpt||'').replace(/\s+/g,' ').trim();
-    if(excerpt.length<40)continue;
-    const key=('source|'+s.name+'|'+excerpt.slice(0,300)).toLowerCase();
-    if(seen.has(key))continue;seen.add(key);parts.push('['+(s.name||'Unterlage')+'] '+excerpt);
-    if(parts.join('\n\n').length>22000)break;
+  const limit=30000,parts=[],seen=new Set();
+  let usedChars=0;
+  const addPart=(source,raw)=>{
+    const cleaned=String(raw||'').replace(/\\s+/g,' ').trim();
+    if(cleaned.length<20)return;
+    const key=(source+'|'+cleaned.slice(0,500)).toLowerCase();
+    if(seen.has(key))return;
+    seen.add(key);
+    const available=limit-usedChars-(parts.length?2:0);
+    if(available<=0)return;
+    const part=('['+source+'] '+cleaned).slice(0,available);
+    parts.push(part);
+    usedChars+=part.length+(parts.length>1?2:0);
+  };
+  const normalizedSubject=String(subject||'').toLowerCase();
+  let sources=state.sources||[];
+  if(setId)sources=sources.filter(src=>src.setId===setId);
+  else if(subject)sources=sources.filter(src=>(src.subject||'').toLowerCase()===normalizedSubject);
+  for(const src of sources){
+    if(usedChars>=22000)break;
+    addPart(src.name||'Unterlage',src.excerpt);
   }
-
   let list=(state.custom||[]).filter(q=>!q.aiGenerated);
   if(setId)list=list.filter(q=>q.setId===setId);
-  else if(subject)list=list.filter(q=>(q.subject||'').toLowerCase()===subject.toLowerCase());
+  else if(subject)list=list.filter(q=>(q.subject||'').toLowerCase()===normalizedSubject);
+  const term=String(topic||'').trim().toLowerCase();
   if(term){
-    const matching=list.filter(q=>[q.topic,q.prompt,q.answer,q.explanation,q.sourceName].some(v=>String(v||'').toLowerCase().includes(term)));
-    if(matching.length>=2)list=matching;
+    const relevant=list.filter(q=>[q.topic,q.prompt,q.answer,q.explanation,q.sourceName].some(
+      value=>String(value||'').toLowerCase().includes(term)));
+    if(relevant.length>=2)list=relevant;
   }
-  if(!list.length&&subject)list=questions().filter(q=>!q.aiGenerated&&(q.subject||'').toLowerCase()===subject.toLowerCase());
+  if(!list.length&&subject)list=questions().filter(q=>!q.aiGenerated&&(q.subject||'').toLowerCase()===normalizedSubject);
   for(const q of list){
-    const source=q.sourceName||setById(q.setId)?.name||'Unterlage',text=[q.prompt,q.answer,q.explanation].filter(Boolean).join(' ');
-    const key=(source+'|'+text).toLowerCase().replace(/\s+/g,' ').slice(0,500);
-    if(text.length<20||seen.has(key))continue;
-    seen.add(key);parts.push('['+source+'] '+text.replace(/\s+/g,' ').trim());
-    if(parts.join('\n\n').length>30000)break;
+    if(usedChars>=limit)break;
+    const source=q.sourceName||setById(q.setId)?.name||'Unterlage';
+    addPart(source,[q.prompt,q.answer,q.explanation].filter(Boolean).join(' '));
   }
-  return parts.join('\n\n').slice(0,30000);
+  return parts.join('\\n\\n');
 }
 
 function normalizeAiQuestions(items,set,topic,meta={}){
