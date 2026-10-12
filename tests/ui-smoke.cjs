@@ -44,7 +44,9 @@ const BASE = process.env.TEST_URL || 'http://127.0.0.1:8765';
     assert(info.includes('passende Aufgaben gefunden'));
   });
   await test('round pause and resume with answer draft',async()=>{
+    await desktop.goto(BASE+'/#dashboard');
     await desktop.goto(BASE+'/#learn');
+    await desktop.locator('#subject-select').selectOption('');
     await desktop.locator('[data-start="learn"]').click();
     assert(await desktop.locator('.question').count()===1);
     const field=desktop.locator('#answer-form input[type=text],#answer-form textarea').first();
@@ -73,7 +75,7 @@ const BASE = process.env.TEST_URL || 'http://127.0.0.1:8765';
     assert(await mobile.locator('#menu-toggle').getAttribute('aria-expanded')==='true');
     await mobile.locator('#main-sidebar a[href="#library"]').click();
     assert(new URL(mobile.url()).hash==='#library');
-    assert(await mobile.locator('#menu-toggle').getAttribute('aria-expanded')==='false');
+    await mobile.waitForFunction(()=>document.querySelector('#menu-toggle')?.getAttribute('aria-expanded')==='false');
     await mobile.locator('#mobile-theme').click();
     assert(await mobile.locator('body').evaluate(x=>x.classList.contains('dark')));
   });
@@ -84,7 +86,7 @@ const BASE = process.env.TEST_URL || 'http://127.0.0.1:8765';
   await test('reduced motion preference',async()=>{
     await mobile.emulateMedia({reducedMotion:'reduce'});
     const val=await mobile.evaluate(()=>getComputedStyle(document.querySelector('.today-panel')||document.querySelector('.card')).transitionDuration);
-    assert(val==='1e-05s'||val==='0.00001s'||val==='0s'||val==='0.01ms');
+    assert(['1e-05s','0.00001s','0s','0.01ms'].includes(val));
   });
   await browser.close();
   if(failures.length){console.error(failures.join('\n'));process.exit(1)}
