@@ -4,6 +4,10 @@ on:
     branches: [feat/modern-learning-gui]
   workflow_dispatch:
 
+concurrency:
+  group: ui-browser-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ui:
     runs-on: ubuntu-latest
