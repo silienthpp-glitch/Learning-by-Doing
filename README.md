@@ -224,6 +224,49 @@ Am Ende erscheinen:
 
 Falsche Antworten werden weiterhin früher zur Wiederholung eingeplant.
 
+## Moderne GUI (Feature-Branch)
+
+Diese Überarbeitung nutzt weiterhin HTML, CSS und JavaScript. Es wurden **keine neuen Laufzeit-Abhängigkeiten** eingeführt.
+
+- Kompaktes Dashboard „Heute lernen“ mit fälligen Wiederholungen, nächstem Termin und vorsichtiger datenbasierter Empfehlung.
+- Lernrunden einschließlich angefangener Antworten pausieren und mit „Weiterlernen“ fortsetzen.
+- Lernsets zuerst anzeigen und nach Name, Fach und Prüfungsart suchen/filtern/sortieren; Erstellung, Import und KI-Lernen öffnen sich bei Bedarf.
+- Verknüpfte Fach-/Themen-/Lernsetfilter mit Anzahl passender Aufgaben und Schutz vor leeren Runden.
+- Mobilmenü, zugängliche Navigation, Dark Mode, Fokusmodus, reduzierte Animationen, dezente 3D-Neigung.
+- KI-Status und transparente Fehlertexte, Abbrechen laufender Browseranfragen, Selbstkontrolle bei nicht verfügbarer Freitextbewertung.
+- Begriffe getrennt: sichere Aufgaben (Lernfortschritt), anteilige Antwortquote und XP/Level.
+
+Die Daten behalten den vorhandenen Schlüssel `learning-by-doing-v2` und die Version `2`. Alte Lernsets werden **nicht automatisch gelöscht oder konvertiert**. Eine pausierte Runde wird separat unter `learning-by-doing-round-v1` gespeichert.
+
+### macOS: nur den neuen Branch in deinem bestehenden Projekt laden
+
+Vor der Aktualisierung empfohlen: **Fortschritt → Sicherung herunterladen**.
+
+Terminal im bestehenden lokalen Hauptordner öffnen (Beispiel):
+
+```sh
+cd ~/Desktop/Learning-by-Doing
+git fetch origin
+git switch --track origin/feat/modern-learning-gui
+python3 start.py --open-browser
+```
+
+Falls der Branch lokal schon existiert:
+
+```sh
+git switch feat/modern-learning-gui
+git pull origin feat/modern-learning-gui
+python3 start.py --open-browser
+```
+
+Die Datei `.env` bleibt lokal und darf nicht ins Repository gelangen. Ollama ist weiterhin Standard. OpenAI wird ausschließlich bei bewusster Auswahl verwendet.
+
+### Tests
+
+Automatischer Browser-Test: `tests/ui-smoke.cjs`, ausgeführt durch `.github/workflows/ui-browser.yml`. Er prüft Desktop/Mobil, Hell/Dunkel, Lernsets, Datenkompatibilität, Pausieren/Fortsetzen, Navigation, Layout-Overflow und reduzierte Bewegung. Screenshots werden als GitHub-Actions-Artefakte abgelegt.
+
+Die vorhandenen Python-/KI-Smoke-Tests bleiben unverändert. Ein Test mit dem tatsächlich auf deinem Mac laufenden Ollama und deinen persönlichen Lernunterlagen muss lokal erfolgen.
+
 ## Start
 
 1. Repository herunterladen oder klonen.
