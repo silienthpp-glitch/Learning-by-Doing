@@ -143,7 +143,7 @@ function materialContext(subject,topic,setId=''){
   const limit=30000,parts=[],seen=new Set();
   let usedChars=0;
   const addPart=(source,raw)=>{
-    const cleaned=String(raw||'').replace(/\\s+/g,' ').trim();
+    const cleaned=String(raw||'').replace(/\s+/g,' ').trim();
     if(cleaned.length<20)return;
     const key=(source+'|'+cleaned.slice(0,500)).toLowerCase();
     if(seen.has(key))return;
@@ -177,7 +177,7 @@ function materialContext(subject,topic,setId=''){
     const source=q.sourceName||setById(q.setId)?.name||'Unterlage';
     addPart(source,[q.prompt,q.answer,q.explanation].filter(Boolean).join(' '));
   }
-  return parts.join('\\n\\n');
+  return parts.join('\n\n');
 }
 
 function normalizeAiQuestions(items,set,topic,meta={}){
