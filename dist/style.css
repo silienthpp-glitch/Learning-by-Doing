@@ -401,3 +401,25 @@ input,select,textarea{max-width:100%}
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
   .tilt-card,.set-card{transform:none!important}
 }
+
+/* Zuganglichkeit und Fokusdarstellung */
+.nav-icon{flex:none;display:block}
+.motivation-card{display:block;position:relative}
+.motivation-card #motivation-details:not([hidden]){display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center}
+.motivation-collapse{display:inline-flex;margin:0 0 12px auto;font-size:.82rem}
+.motivation-card #motivation-details[hidden]{display:none}
+.focus-mode main>#app{max-width:860px}
+.focus-mode main>#app>.heading{margin-bottom:18px}
+.focus-mode .question{box-shadow:0 18px 50px rgba(18,32,60,.12)}
+.focus-mode .question h2{font-size:clamp(1.45rem,2.8vw,2rem);line-height:1.35}
+.focus-mode main>header,.focus-mode main>footer{opacity:.48}
+.status-text[role="status"]{min-height:1.5em}
+[hidden]{display:none!important}
+@media(max-width:900px){
+  body aside{display:flex;flex-direction:column}
+  body aside nav{display:flex;flex-direction:column;gap:4px}
+  body aside .nav-label{display:block}
+  body aside .sidebar-bottom{display:block}
+  .motivation-card #motivation-details:not([hidden]){grid-template-columns:56px 1fr}
+  .motivation-card .motivation-next{grid-column:1/-1}
+}
