@@ -1009,7 +1009,7 @@ document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{
 window.addEventListener('beforeunload',e=>{
   if(session?.mode==='exam'&&session.results.length){e.preventDefault();e.returnValue='';}
 });
-window.addEventListener('hashchange',()=>{activeAiRequest?.abort();activeAiRequest=null;if(session)persistRound();session=null;game=null;render();document.querySelector('#menu-toggle')?.setAttribute('aria-expanded','false');document.body.classList.remove('menu-open');document.querySelector('#nav-scrim').hidden=true});
+window.addEventListener('hashchange',()=>{activeAiRequest?.abort();activeAiRequest=null;if(session)persistRound();session=null;game=null;render();setMobileMenu(false)});
 function setMobileMenu(open){document.body.classList.toggle('menu-open',open);document.querySelector('#menu-toggle').setAttribute('aria-expanded',String(open));document.querySelector('#nav-scrim').hidden=!open;const aside=document.querySelector('#main-sidebar');if(aside)aside.inert=!open&&matchMedia('(max-width:900px)').matches;if(open)aside?.querySelector('nav a')?.focus();}
 document.querySelector('#menu-toggle')?.addEventListener('click',()=>setMobileMenu(!document.body.classList.contains('menu-open')));
 document.querySelector('#nav-scrim')?.addEventListener('click',()=>setMobileMenu(false));
