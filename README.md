@@ -329,3 +329,44 @@ Unter **Fortschritt** kannst du eine JSON-Sicherung herunterladen und später wi
 - Alte PDF-Imports können als Grundlage dienen, solange die daraus erzeugten Textabschnitte/Lernkarten noch im Browser gespeichert sind.
 - OpenAI ist nur eine optionale Alternative und verursacht je nach verwendetem Modell API-Kosten.
 - Originale IHK-Prüfungsunterlagen sollten nicht ohne entsprechende Rechte öffentlich im Repository veröffentlicht werden.
+
+
+## So funktioniert dein Projekt (einfach erklärt)
+
+Deine Webseite verwendet bewusst **kein großes Framework**. Dadurch läuft sie ressourcensparend direkt über einen kleinen Python-Webserver.
+
+| Datei | Aufgabe |
+| --- | --- |
+| `start.py` | Startet den lokalen Server und stellt die KI-Schnittstellen bereit. |
+| `dist/index.html` | Grundgerüst: Navigation, Seitenleiste und Platz für die aktuelle Seite. |
+| `dist/style.css` | Farben, Abstände, Dark Mode, mobile Ansicht und dezente Effekte. |
+| `dist/app.js` | Lernsets, Import, Lernablauf, Antworten, Fortschritt, lokale Speicherung und Einstellungen. |
+| `dist/questions.js` | Mitgelieferte Beispielfragen, die auch ohne KI verfügbar sind. |
+| `.env` | **Nur auf deinem Rechner:** optionale Zugangsdaten, niemals ins öffentliche GitHub-Repository laden. |
+| `tests/ui-smoke.cjs` | Überprüft die Oberfläche im automatisierten Testbrowser. |
+
+### Die wichtigsten Funktionen in app.js
+
+- `render()` zeigt die passende Seite an, zum Beispiel Dashboard oder Lernsets.
+- `questions()` stellt Beispiel- und eigene Lernfragen zusammen.
+- `importMaterials()` liest deine Dateien ein und erstellt Lernkarten.
+- `materialContext()` stellt einen begrenzten Textkontext für die lokale KI zusammen. So werden die KI-Anfragen nicht unnötig groß.
+- `generateAiSet()` erstellt Fragen zu deinem gewählten Fach und Thema.
+- `submit()` verarbeitet die eingegebene Antwort; `evaluateQuestion()` kümmert sich um die Bewertung.
+- `update()` plant die nächste Wiederholung der Frage.
+- `save()` speichert deinen Lernstand im Browser.
+- `persistRound()` merkt sich eine pausierte Runde. Dafür werden nur Frage-IDs und kleine Ergebnisdaten gespeichert, **nicht alle Fragen doppelt**.
+- `savedRound()` stellt die Runde wieder her und unterstützt weiterhin das vorherige Speicherformat.
+
+### Warum diese Optimierungen?
+
+Die Textzusammenstellung für die KI hat ein festes Limit von **30.000 Zeichen**. Dadurch wächst eine Anfrage nicht unbegrenzt an und fordert weniger Arbeitsspeicher sowie Rechenzeit. Bei pausierten Runden werden nur die nötigen Informationen gespeichert. Die eigentlichen Lernkarten bleiben weiterhin unter dem bestehenden Browser-Speicherschlüssel `learning-by-doing-v2` liegen.
+
+**Wichtig:** Die lokale KI benötigt trotzdem Arbeitsspeicher für das von Ollama geladene Modell. Wie viel RAM Ollama verwendet, hängt hauptsächlich von Modellgröße, Kontextlänge und deinem Mac ab. Diese Frontend-Optimierungen beseitigen diesen Modell-RAM-Bedarf nicht.
+
+### Tests und Fehlerbenachrichtigungen
+
+GitHub Actions kann dir zu Zwischenständen fehlgeschlagene Jobs melden. Die Fehlermeldung gehört immer zu **einem konkreten Commit**. Spätere erfolgreiche Runs beheben nicht rückwirkend den Status eines älteren Runs.
+
+Prüfe unter GitHub → Actions den **neuesten Lauf deines Branches**. Die GUI-Tests überprüfen unter anderem das Speichern einer Lernrunde, einen vollständigen Browser-Neustart und die Kompatibilität mit älteren Browserdaten.
+
