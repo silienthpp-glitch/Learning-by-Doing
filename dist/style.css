@@ -429,3 +429,8 @@ input,select,textarea{max-width:100%}
 .confirm-dialog h2{font-size:1.3rem;margin:0 0 10px}
 .confirm-dialog .actions{justify-content:flex-end;margin-top:24px;flex-wrap:wrap}
 .confirm-dialog button{min-height:44px}
+
+#visible-notice:not([hidden]){display:block;width:min(1180px,calc(100% - 48px));margin:16px auto 0;padding:14px 18px;border-radius:14px;border:1px solid var(--line);background:var(--primary-soft);color:var(--text);font-weight:600}
+.dark #visible-notice{background:var(--panel-2)}
+button:disabled{opacity:.56;cursor:not-allowed;transform:none!important}
+@media(max-width:900px){#visible-notice:not([hidden]){width:calc(100% - 28px)}}
