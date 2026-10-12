@@ -85,6 +85,7 @@ try{
 }catch{warn('Gespeicherte Daten konnten nicht geladen werden.');}
 
 function warn(t){const e=document.querySelector('#storage-warning');if(e)e.innerHTML='<p class="error-banner">'+esc(t)+'</p>'}
+/** Speichert Lernsets, Erfolge und Einstellungen lokal im Browser (ohne Cloud). */
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{warn('Der Browser kann deinen Fortschritt nicht speichern. Bitte exportiere eine Sicherung.')}}
 
 async function apiJson(path,payload,signal){
@@ -199,6 +200,7 @@ function normalizeAiQuestions(items,set,topic,meta={}){
     };
   }).filter(q=>q.prompt&&q.answer);
 }
+/** Verwendet vorhandene Unterlagen als Grundlage; neue Fragen erst nach erfolgreicher KI-Antwort speichern. */
 async function generateAiSet(form){
   const d=new FormData(form),subject=String(d.get('subject')||'').trim(),topic=String(d.get('topic')||'').trim(),
     setId=String(d.get('sourceSet')||''),count=Number(d.get('count')||10),status=document.querySelector('#ai-generate-status'),
@@ -367,6 +369,7 @@ function refreshMotivation(){
   node.querySelector('.motivation-copy > p').textContent=q.source;
 }
 
+/** Kombiniert mitgelieferte Beispielfragen und deine importierten Fragen. */
 function questions(){
   return [...(window.EXAMPLE_QUESTIONS||[]).map(q=>({...q,subject:q.subject||'IHK AP2',setId:q.setId||'',sourceName:q.sourceName||'Beispielaufgaben'})),...(state.custom||[])];
 }
@@ -421,6 +424,7 @@ function setCard(s){
   return '<article class="set-card"><div class="topic-line"><span class="tag">'+esc(s.kind)+'</span>'+(s.aiGenerated?'<span class="tag soft">KI</span>':'')+(s.date?'<small title="'+esc(formatDate(s.date))+'">'+esc(deadline)+' · '+esc(formatDate(s.date))+'</small>':'')+'</div><h3>'+esc(s.name)+'</h3><p>'+esc(s.subject)+'</p><progress max="100" value="'+pct(list)+'"></progress><div class="small">'+pct(list)+'% sicher · '+list.length+' Karten/Fragen · '+sources+' Dateien</div><div class="actions compact"><button data-set-learn="'+esc(s.id)+'">Lernen</button><button class="quiet" data-set-delete="'+esc(s.id)+'">Löschen</button></div></article>';
 }
 
+/** Router: Baut nur die gerade gewählte Seite neu auf. Keine Framework-Abhängigkeit. */
 function render(){
   document.body.classList.toggle('dark',state.theme==='dark');document.body.classList.toggle('reduced-effects',!!state.reduceEffects);
   const route=location.hash.slice(1)||'dashboard';
@@ -442,6 +446,7 @@ function render(){
   setupTilt();
 }
 
+/** Startseite: zeigt fällige Fragen, Prüfungstermin und echte gespeicherte Kennzahlen. */
 function dashboard(){
   const l=level(),today=new Date().toLocaleDateString('sv-SE'),active=[...state.sets].sort((a,b)=>{
     const rank=s=>!s.date?1:(s.date>=today?0:2),ra=rank(a),rb=rank(b);
@@ -459,6 +464,7 @@ function dashboard(){
   '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Deine Klausuren & Tests</h2><a href="#library">Neues Lernset</a></div>'+(active.length?'<div class="set-grid">'+active.map(setCard).join('')+'</div>':'<div class="empty-state"><strong>Noch kein eigenes Lernset.</strong><p>Lege zum Beispiel „Netzwerktechnik Klausur 2“ oder „WiSo Test Freitag“ an.</p><a class="button" href="#library">Erstes Lernset anlegen</a></div>')+'</section>';
 }
 
+/** Zeichnet die Fach-, Themen- und Lernset-Auswahl für eine Übungsrunde. */
 function learn(route){
   const err=route==='errors';
   app.innerHTML=head(err?'Aus Fehlern wird Verständnis.':'Was möchtest du heute lernen?',err?'Hier wiederholst du Aufgaben, die noch nicht sicher sitzen.':'Wähle Fach, Thema oder Lernset. Du kannst auch alles mischen.')+
@@ -478,6 +484,7 @@ function filteredQuestions(route){
   if(setId)list=list.filter(q=>q.setId===setId);
   return list;
 }
+/** Filter beeinflussen sich gegenseitig; leere Lernrunden werden verhindert. */
 function updateMatchingCount(){
   const route=location.hash.slice(1)||'learn',sub=document.querySelector('#subject-select'),topic=document.querySelector('#topic-select'),set=document.querySelector('#set-select');
   if(!sub||!topic||!set)return;
@@ -491,7 +498,9 @@ function updateMatchingCount(){
   document.querySelector('#matching-count').textContent=n+' passende Aufgaben gefunden.';
   const button=document.querySelector('[data-start="'+route+'"]');if(button)button.disabled=n===0;
 }
+/** Minimaler 3D-Effekt nur für Mausgeräte; respektiert reduzierte Bewegung. */
 function setupTilt(){if(state.reduceEffects||matchMedia('(prefers-reduced-motion: reduce)').matches||!matchMedia('(hover: hover) and (pointer: fine)').matches)return;document.querySelectorAll('.tilt-card').forEach(card=>{card.onpointermove=e=>{const box=card.getBoundingClientRect(),x=(e.clientX-box.left)/box.width-.5,y=(e.clientY-box.top)/box.height-.5;card.style.transform='perspective(1000px) rotateX('+(-y*2.3)+'deg) rotateY('+(x*2.3)+'deg)'};card.onpointerleave=()=>card.style.transform='';});}
+/** Lernset-Bibliothek: Suchen/Sortieren vor den optional geöffneten Formularen. */
 function library(){
   const subjectOptions=subjects(),topicOptions=topics();
   app.innerHTML=head('Fächer, Klausuren und Tests.','Organisiere Unterlagen wie bisher oder erstelle direkt ein KI-Lernset aus deinen vorhandenen Dokumenten.',state.sets.length+' Lernsets')+
@@ -581,6 +590,7 @@ function exam(){
   '<label>Umfang<select id="exam-count"><option value="10">10 Fragen</option><option value="20">20 Fragen</option><option value="30">30 Fragen</option></select></label></div>'+
   '<div class="actions"><button data-start="exam">Probeprüfung starten</button></div></section>';
 }
+/** Startet eine neue Übungs- oder Prüfungsrunde mit maximal 30 Aufgaben. */
 function start(mode,opt={}){
   let list=questions(),subject=opt.subject||document.querySelector('#subject-select')?.value||'',topic=opt.topic||document.querySelector('#topic-select')?.value||'',
     setId=opt.setId||document.querySelector('#set-select')?.value||(mode==='exam'?document.querySelector('#exam-set')?.value||'':'');
@@ -614,6 +624,7 @@ function formAnswer(form,q){
 }
 function answerPresent(v){return Array.isArray(v)?v.length>0:String(v??'').trim().length>0}
 function answerText(v){return Array.isArray(v)?v.join(', '):String(v??'')}
+/** Baut die aktuelle Frage auf und verbindet Eingabe, Fokusmodus und Pausenfunktion. */
 function renderQuestion(){
   const s=session,q=s.queue[s.index];
   if(!q){summary();return}
@@ -654,6 +665,7 @@ function localEvaluation(q,answer){
   const ok=correct(q,answer);
   return{rating:ok?'correct':'wrong',score:ok?1:0,feedback:q.explanation||'',modelAnswer:q.answer||''};
 }
+/** Bewertet KI-Fragen über den lokalen Server; sichere Auswahltypen haben lokale Ausweichbewertung. */
 async function evaluateQuestion(q,answer,signal){
   if(!q.aiGenerated)return localEvaluation(q,answer);
   try{
@@ -668,6 +680,7 @@ async function evaluateQuestion(q,answer,signal){
   }
 }
 function gradeName(r){return r==='unavailable'?'Bewertung nicht verfügbar':r==='correct'?'Richtig':r==='partial'?'Teilweise richtig':'Falsch'}
+/** Spaced Repetition: sichere Antworten später, falsche Antworten früher wiederholen. */
 function update(q,rating,score){
   const grade=typeof rating==='boolean'?(rating?'correct':'wrong'):(rating||'wrong'),value=typeof score==='number'?score:(grade==='correct'?1:grade==='partial'?.5:0),
     r={...rec(q)};r.attempts++;r.correct+=value;r.streak=grade==='correct'?r.streak+1:0;r.last=Date.now();
@@ -682,6 +695,7 @@ function explain(q,evaluation,answer){
     '<p>Musterlösung: <strong>'+esc(solution)+'</strong></p>'+(feedback?'<p>'+esc(feedback)+'</p>':'')+
     (q.steps?.length?'<h3>Schritt für Schritt</h3><ol>'+q.steps.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol>':'')+'</div>';
 }
+/** Verarbeitet eine Antwort und speichert das Ergebnis erst nach einer zuverlässigen Bewertung. */
 async function submit(answer){
   const s=session;if(!s||s.answered||!answerPresent(answer))return;const q=s.queue[s.index];
   s.answered=true;document.querySelectorAll('#answer-form input,#answer-form textarea,#answer-form button[type=submit]').forEach(x=>x.disabled=true);
@@ -714,6 +728,7 @@ function topicBreakdown(res){
   const map=new Map();res.filter(x=>x.rating!=='unavailable').forEach(x=>{const key=x.q.topic||x.q.subject||'Allgemein',g=map.get(key)||{name:key,earned:0,possible:0};const p=x.q.points||1;g.earned+=p*(Number.isFinite(x.score)?x.score:(x.correct?1:0));g.possible+=p;map.set(key,g)});
   return [...map.values()].map(x=>({...x,pct:x.possible?Math.round(x.earned/x.possible*100):0})).sort((a,b)=>a.pct-b.pct);
 }
+/** Ergebnisauswertung: Punkte, Prozente und Themen mit Wissenslücken. */
 function summary(early=false){
   const s=session,res=s.results;
   if(s.mode==='exam'){res.filter(x=>x.rating!=='unavailable').forEach(x=>update(x.q,x.rating||x.correct,x.score));save()}
@@ -736,6 +751,7 @@ function createSet(form){
   if(!s.name||!s.subject){if(status)status.textContent='Bitte Name und Fach ausfüllen.';return}
   state.sets.push(s);save();message='Lernset „'+s.name+'“ wurde angelegt. Füge jetzt passende Unterlagen hinzu.';render();document.querySelector('#library-forms')?.classList.remove('hidden-section');const picker=document.querySelector('#material-set');if(picker){picker.value=s.id;picker.focus()}announce(message);
 }
+/** Liest ausgewählte Dateien ein, erstellt Karten und speichert nur begrenzte Textauszüge. */
 async function importMaterials(form){
   const d=new FormData(form),set=setById(String(d.get('setId')||'')),files=[...document.querySelector('#material-files').files],notes=[];if(!set||!files.length)return;
   document.querySelector('#material-status').textContent='Dateien werden eingelesen …';let count=0,cards=0;
@@ -963,6 +979,7 @@ function validate(input,allowEmpty=true){
 async function importJson(e){
   const target=document.querySelector('#import-status');try{const f=e.target.files[0];if(!f)return;const added=validate(JSON.parse(await f.text()),false);state.custom.push(...added);state.sources.push({id:id('src'),name:f.name,subject:'Eigene Unterlagen',setId:'',cards:added.length,addedAt:Date.now()});save();message=added.length+' Fragen importiert.';render()}catch(err){if(target)target.textContent='Import nicht möglich: '+err.message}
 }
+/** Löscht ein Lernset erst nach ausdrücklicher Bestätigung, inklusive zugehöriger Lernkarten. */
 async function deleteSet(sid){
   const s=setById(sid);if(!s||!await confirmAction('Lernset „'+s.name+'“ samt importierten Fragen und Dateien löschen?','Löschen'))return;
   const ids=new Set(state.custom.filter(q=>q.setId===sid).map(q=>q.id));state.custom=state.custom.filter(q=>q.setId!==sid);state.sources=state.sources.filter(x=>x.setId!==sid);state.sets=state.sets.filter(x=>x.id!==sid);ids.forEach(x=>delete state.records[x]);state.history=state.history.filter(x=>!ids.has(x.id));save();render();
@@ -1024,6 +1041,7 @@ function answerDetective(q,a){
 }
 function finishGame(){game=null;location.hash='games';render()}
 
+/** Registriert Klick- und Formularaktionen nach jedem Neuaufbau der Seite. */
 function bind(){
   const searchBox=document.querySelector('#library-search');if(searchBox)searchBox.value=uiFilter.search;
   document.querySelector('#library-search')?.addEventListener('input',e=>{uiFilter.search=e.target.value;updateLibraryResults()});
