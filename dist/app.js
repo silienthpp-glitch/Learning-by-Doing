@@ -37,7 +37,8 @@ function aiStatusHtml(kind){
   const s=aiStatusCache?.[kind];
   if(!s)return '<span class="ai-state checking">● Status wird geprüft …</span>';
   if(kind==='ollama'){
-    if(s.reachable&&s.modelReady)return '<span class="ai-state online">● Lokale KI verbunden</span><small>'+esc(s.activeModel||s.preferredModel||'Ollama')+'</small>';
+    if(s.reachable&&s.modelReady)return '<span class="ai-state online">● KI bereit: Lokale KI verbunden</span><small>'+esc(s.activeModel||s.preferredModel||'Ollama')+'</small>';
+    if(s.reachable&&!s.modelReady)return '<span class="ai-state offline">● Ollama verbunden – Modell fehlt</span><small>'+esc(s.message||'Bitte Modell installieren.')+'</small>';
     return '<span class="ai-state offline">● Lokale KI nicht erreichbar</span><small>'+esc(s.message||'Ollama starten und Modell installieren.')+'</small>';
   }
   return s.available?'<span class="ai-state online">● OpenAI verfügbar</span><small>'+esc(s.model||'')+'</small>':'<span class="ai-state neutral">● OpenAI nicht eingerichtet</span><small>Optional · API-Key bleibt ausschließlich in .env</small>';
@@ -272,7 +273,7 @@ function motivationIndex(){
 }
 function motivationCard(){
   const q=MOTIVATION_QUOTES[motivationIndex()];
-  return '<section class="motivation-card" id="motivation-card"><div class="motivation-icon">'+esc(q.icon)+'</div><div class="motivation-copy"><div class="motivation-top"><span class="tag">'+esc(q.category)+'</span><span class="small">wechselt automatisch</span></div><blockquote>„'+esc(q.text)+'“</blockquote><p>'+esc(q.source)+'</p></div><button class="quiet motivation-next" id="motivation-next" type="button" title="Anderen Motivationsspruch anzeigen">↻ Neuer Spruch</button></section>';
+  return '<section class="motivation-card" id="motivation-card"><button class="quiet motivation-collapse" type="button" id="motivation-toggle" aria-expanded="'+(!state.motivationCollapsed)+'" aria-controls="motivation-details">'+(state.motivationCollapsed?'Motivation anzeigen':'Motivation einklappen')+'</button><div id="motivation-details" '+(state.motivationCollapsed?'hidden':'')+'><div class="motivation-icon">'+esc(q.icon)+'</div><div class="motivation-copy"><div class="motivation-top"><span class="tag">'+esc(q.category)+'</span><span class="small">wechselt automatisch</span></div><blockquote>„'+esc(q.text)+'“</blockquote><p>'+esc(q.source)+'</p></div><button class="quiet motivation-next" id="motivation-next" type="button" title="Anderen Motivationsspruch anzeigen">↻ Neuer Spruch</button></div></section>';
 }
 function refreshMotivation(){
   const node=document.querySelector('#motivation-card');
@@ -421,11 +422,11 @@ function library(){
   '<label>Anzahl<select name="count"><option value="10">10 Fragen</option><option value="20">20 Fragen</option><option value="30">30 Fragen</option></select></label></div>'+
   '<label>Unterlagen eingrenzen (optional)<select name="sourceSet"><option value="">Automatisch passende Unterlagen</option>'+state.sets.filter(s=>bySet(s.id).some(q=>!q.aiGenerated)).map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label>'+
   '<div class="actions"><button type="submit">Lernset erstellen & direkt lernen</button><a class="button quiet" href="#settings">KI-Einstellungen</a></div></form>'+
-  '<p id="ai-generate-status" class="status-text"></p><div class="hint"><strong>Grundlage:</strong> Importierte PDF/TXT/MD-Inhalte werden aus deinen lokal gespeicherten Lernkarten gesammelt. KI-generierte Fragen werden nicht als neue Quelle benutzt.</div></section>'+
+  '<p id="ai-generate-status" class="status-text" role="status" aria-live="polite"></p><div class="hint"><strong>Grundlage:</strong> Importierte PDF/TXT/MD-Inhalte werden aus deinen lokal gespeicherten Lernkarten gesammelt. KI-generierte Fragen werden nicht als neue Quelle benutzt.</div></section>'+
   '<div id="library-forms" class="two library-columns hidden-section" style="margin-top:24px"><section class="card"><span class="tag">1 · LERNSET</span><h2>Neues Lernset anlegen</h2><p>Der bisherige manuelle Weg bleibt vollständig erhalten.</p><form id="set-form" class="stack-form"><label>Name<input name="name" required maxlength="80" placeholder="z. B. Netzwerktechnik Klausur 2"></label><label>Fach<input name="subject" required maxlength="60" placeholder="z. B. Netzwerktechnik"></label><label>Art<select name="kind"><option>Klausur</option><option>Test</option><option>IHK</option><option>Sonstiges</option></select></label><label>Termin (optional)<input name="date" type="date"></label><button type="submit">Lernset anlegen</button><p id="set-status" class="status-text"></p></form></section>'+
-  '<section class="card"><span class="tag">2 · DATEIEN</span><h2>Unterlagen hinzufügen</h2><p>PDF, TXT, Markdown oder strukturierte JSON-Fragen. Mehrere Dateien dürfen gleichzeitig gewählt werden.</p><form id="material-form" class="stack-form"><label>Lernset<select name="setId" id="material-set" required><option value="">Bitte wählen</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label><label>Dateien<input id="material-files" type="file" multiple accept=".pdf,.txt,.md,.json,application/pdf,application/json,text/plain,text/markdown" required></label><button type="submit" '+(state.sets.length?'':'disabled')+'>Dateien einlesen</button></form><p id="material-status" class="status-text">'+esc(message)+'</p><div class="hint"><strong>Wichtig:</strong> Die normale Importfunktion bleibt verfügbar. Für hochwertige themenbezogene Fragen nutzt du anschließend oben „Lernset erstellen & direkt lernen“.</div></section></div>'+
+  '<section class="card"><span class="tag">2 · DATEIEN</span><h2>Unterlagen hinzufügen</h2><p>PDF, TXT, Markdown oder strukturierte JSON-Fragen. Mehrere Dateien dürfen gleichzeitig gewählt werden.</p><form id="material-form" class="stack-form"><label>Lernset<select name="setId" id="material-set" required><option value="">Bitte wählen</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label><label>Dateien<input id="material-files" type="file" multiple accept=".pdf,.txt,.md,.json,application/pdf,application/json,text/plain,text/markdown" required></label><button type="submit" '+(state.sets.length?'':'disabled')+'>Dateien einlesen</button></form><p id="material-status" class="status-text" role="status" aria-live="polite">'+esc(message)+'</p><div class="hint"><strong>Wichtig:</strong> Die normale Importfunktion bleibt verfügbar. Für hochwertige themenbezogene Fragen nutzt du anschließend oben „Lernset erstellen & direkt lernen“.</div></section></div>'+
 
-  '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Importierte Dateien</h2><span class="small">'+state.sources.length+' gespeichert</span></div>'+(state.sources.length?'<div class="source-list">'+[...state.sources].reverse().map(s=>'<div><strong>'+esc(s.name)+'</strong><span>'+esc(setById(s.setId)?.name||s.subject)+' · '+(s.cards||0)+' Lernkarten</span></div>').join('')+'</div>':'<p class="muted">Noch keine eigenen Dateien importiert.</p>')+'</section>';
+  '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Importierte Quellen und Auszüge</h2><span class="small">'+state.sources.length+' gespeichert</span></div>'+(state.sources.length?'<div class="source-list">'+[...state.sources].reverse().map(s=>'<div><strong>'+esc(s.name)+'</strong><span>'+esc(setById(s.setId)?.name||s.subject)+' · '+(s.cards||0)+' Lernkarten · '+(s.excerpt?'Textauszug gespeichert':'Text nur in den Lernkarten')+' · Originaldatei nicht gespeichert</span></div>').join('')+'</div>':'<p class="muted">Noch keine eigenen Dateien importiert.</p>')+'</section>';
   setTimeout(refreshAiStatus,0);updateLibraryResults();
 }
 
@@ -451,9 +452,9 @@ function topicsView(){
 }
 
 function progress(){
-  const n=state.history.length,acc=n?Math.round(state.history.filter(x=>x.correct).length/n*100):0,l=level();
+  const n=state.history.length,acc=n?Math.round(state.history.reduce((v,x)=>v+historyScore(x),0)/n*100):0,partial=state.history.filter(x=>historyScore(x)>=.4&&historyScore(x)<.85).length,l=level();
   app.innerHTML=head('Du kommst voran.','Level, Fächer und Lernsets zeigen dir, wo du stehst.','Level '+l.n)+stats()+
-  '<div class="two"><section class="card"><h2>Fortschritt je Fach</h2>'+rows('subject')+'</section><section class="card"><h2>Dein Lernprofil</h2><div class="big-number">'+acc+'%</div><p>Richtige Antworten bei '+n+' Versuchen.</p><p>'+questions().filter(q=>rec(q).attempts).length+' von '+questions().length+' Aufgaben ausprobiert.</p><h3>Level '+l.n+'</h3><progress max="'+l.step+'" value="'+l.cur+'"></progress><p class="small">'+l.cur+' von '+l.step+' XP bis zum nächsten Level.</p></section></div>'+
+  '<div class="two"><section class="card"><h2>Fortschritt je Fach</h2>'+rows('subject')+'</section><section class="card"><h2>Dein Lernprofil</h2><div class="big-number">'+acc+'%</div><p>Durchschnittliche Antwortquote bei '+n+' Versuchen · '+partial+' teilweise richtig.</p><p>'+questions().filter(q=>rec(q).attempts).length+' von '+questions().length+' Aufgaben ausprobiert.</p><h3>Level '+l.n+'</h3><progress max="'+l.step+'" value="'+l.cur+'"></progress><p class="small">'+l.cur+' von '+l.step+' XP bis zum nächsten Level.</p></section></div>'+
   '<section class="card" style="margin-top:24px"><h2>Lernsets</h2>'+(state.sets.length?'<div class="set-grid">'+state.sets.map(setCard).join('')+'</div>':'<p class="muted">Noch keine eigenen Lernsets vorhanden.</p>')+'</section>'+
   '<section class="card" style="margin-top:24px"><h2>Fortschritt sichern</h2><div class="actions"><button id="export">Sicherung herunterladen</button><label class="file-button">Sicherung wiederherstellen<input id="restore" type="file" accept=".json,application/json"></label></div><p id="restore-status"></p></section>';
 }
@@ -542,6 +543,8 @@ function renderQuestion(){
   '<div id="feedback"></div></section>';
   if(self)document.querySelector('#reveal').onclick=()=>reveal(q);
   else document.querySelector('#answer-form').onsubmit=e=>{e.preventDefault();submit(formAnswer(e.target,q))};
+  const focusToggle=document.createElement('button');focusToggle.className='quiet';focusToggle.type='button';focusToggle.id='focus-toggle';focusToggle.textContent=state.focusMode?'Fokusmodus beenden':'Fokusmodus';document.querySelector('.question .actions')?.append(focusToggle);focusToggle.onclick=()=>{state.focusMode=!state.focusMode;save();document.body.classList.toggle('focus-mode',!!state.focusMode);focusToggle.textContent=state.focusMode?'Fokusmodus beenden':'Fokusmodus'};
+  document.body.classList.toggle('focus-mode',!!state.focusMode);
   document.querySelector('#end').textContent='Pause / Beenden';
   document.querySelector('#end').onclick=()=>{persistRound();session=null;location.hash='dashboard';render();announce('Lernrunde pausiert. Du kannst sie über Weiterlernen fortsetzen.')};
   const form=document.querySelector('#answer-form');const key='learning-by-doing-draft-'+q.id;
@@ -600,7 +603,7 @@ function explain(q,evaluation,answer){
 async function submit(answer){
   const s=session;if(!s||s.answered||!answerPresent(answer))return;const q=s.queue[s.index];
   s.answered=true;document.querySelectorAll('#answer-form input,#answer-form textarea,#answer-form button[type=submit]').forEach(x=>x.disabled=true);
-  const feedback=document.querySelector('#feedback');
+  const feedback=document.querySelector('#feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
   if(q.aiGenerated)feedback.innerHTML='<div class="hint">'+esc(providerName())+' bewertet deine Antwort …</div>';
   const evaluation=await evaluateQuestion(q,answer),rating=evaluation.rating||'wrong',score=evaluation.unavailable?null:Number.isFinite(Number(evaluation.score))?Number(evaluation.score):(rating==='correct'?1:rating==='partial'?.5:0);
   if(evaluation.unavailable){s.answered=false;feedback.innerHTML=explain(q,evaluation,answer)+'<div class="actions"><button id="self-correct">✓ Gewusst</button><button id="self-partial">◐ Teilweise richtig</button><button id="self-wrong">↻ Noch nicht sicher</button></div>';const decide=(r,v)=>{s.answered=true;const result={q,answer,correct:r==='correct',rating:r,score:v,feedback:evaluation.feedback,modelAnswer:q.answer};s.results.push(result);update(q,r,v);save();persistRound();feedback.innerHTML=explain(q,{...evaluation,rating:r},answer)+'<button id="next">Weiter</button>';document.querySelector('#next').onclick=next};document.querySelector('#self-correct').onclick=()=>decide('correct',1);document.querySelector('#self-partial').onclick=()=>decide('partial',.5);document.querySelector('#self-wrong').onclick=()=>decide('wrong',0);return}
@@ -937,6 +940,7 @@ function answerDetective(q,a){
 function finishGame(){game=null;location.hash='games';render()}
 
 function bind(){
+  const searchBox=document.querySelector('#library-search');if(searchBox)searchBox.value=uiFilter.search;
   document.querySelector('#library-search')?.addEventListener('input',e=>{uiFilter.search=e.target.value;updateLibraryResults()});
   for(const field of ['subject','kind','sort']){const el=document.querySelector('#library-'+field);if(el){el.value=uiFilter[field];el.addEventListener('change',e=>{uiFilter[field]=e.target.value;updateLibraryResults()})}}
   document.querySelector('#show-set-create')?.addEventListener('click',()=>{document.querySelector('#library-forms')?.classList.remove('hidden-section');document.querySelector('#set-form input[name=name]')?.focus()});
@@ -946,6 +950,7 @@ function bind(){
   document.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>start(b.dataset.start));
   document.querySelector('#today-primary')?.addEventListener('click',()=>savedRound()?resumeRound():(location.hash='learn'));
   for(const name of ['subject','topic','set'])document.querySelector('#'+name+'-select')?.addEventListener('change',updateMatchingCount);
+  document.querySelector('#motivation-toggle')?.addEventListener('click',()=>{state.motivationCollapsed=!state.motivationCollapsed;save();render()});
   document.querySelector('#motivation-next')?.addEventListener('click',()=>{state.quoteShift=(Number(state.quoteShift)||0)+1;save();refreshMotivation();});
   document.querySelectorAll('[data-topic]').forEach(b=>b.onclick=()=>start('learn',{topic:b.dataset.topic}));
   document.querySelectorAll('[data-set-learn]').forEach(b=>b.onclick=()=>{const sid=b.dataset.setLearn;start('learn',{setId:sid,limit:Math.min(30,Math.max(10,bySet(sid).length))})});
