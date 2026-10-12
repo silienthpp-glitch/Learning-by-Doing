@@ -579,10 +579,10 @@ async function evaluateQuestion(q,answer){
     if(['choice','multichoice','truefalse','number'].includes(q.type)){
       const fallback=localEvaluation(q,answer);fallback.feedback=(fallback.feedback?fallback.feedback+' ':'')+'Hinweis: KI-Bewertung war nicht erreichbar; diese eindeutige Aufgabe wurde lokal ausgewertet.';return fallback;
     }
-    const fallback=localEvaluation(q,answer);fallback.feedback='KI-Bewertung nicht erreichbar: '+e.message+' Vergleiche zusätzlich mit der Musterlösung.';return fallback;
+    return{rating:'unavailable',score:null,feedback:'Bewertung nicht verfügbar: '+e.message,modelAnswer:q.answer||'',unavailable:true};
   }
 }
-function gradeName(r){return r==='correct'?'Richtig':r==='partial'?'Teilweise richtig':'Falsch'}
+function gradeName(r){return r==='unavailable'?'Bewertung nicht verfügbar':r==='correct'?'Richtig':r==='partial'?'Teilweise richtig':'Falsch'}
 function update(q,rating,score){
   const grade=typeof rating==='boolean'?(rating?'correct':'wrong'):(rating||'wrong'),value=typeof score==='number'?score:(grade==='correct'?1:grade==='partial'?.5:0),
     r={...rec(q)};r.attempts++;r.correct+=value;r.streak=grade==='correct'?r.streak+1:0;r.last=Date.now();
@@ -602,7 +602,8 @@ async function submit(answer){
   s.answered=true;document.querySelectorAll('#answer-form input,#answer-form textarea,#answer-form button[type=submit]').forEach(x=>x.disabled=true);
   const feedback=document.querySelector('#feedback');
   if(q.aiGenerated)feedback.innerHTML='<div class="hint">'+esc(providerName())+' bewertet deine Antwort …</div>';
-  const evaluation=await evaluateQuestion(q,answer),rating=evaluation.rating||'wrong',score=Number.isFinite(Number(evaluation.score))?Number(evaluation.score):(rating==='correct'?1:rating==='partial'?.5:0);
+  const evaluation=await evaluateQuestion(q,answer),rating=evaluation.rating||'wrong',score=evaluation.unavailable?null:Number.isFinite(Number(evaluation.score))?Number(evaluation.score):(rating==='correct'?1:rating==='partial'?.5:0);
+  if(evaluation.unavailable){s.answered=false;feedback.innerHTML=explain(q,evaluation,answer)+'<div class="actions"><button id="self-correct">✓ Gewusst</button><button id="self-partial">◐ Teilweise richtig</button><button id="self-wrong">↻ Noch nicht sicher</button></div>';const decide=(r,v)=>{s.answered=true;const result={q,answer,correct:r==='correct',rating:r,score:v,feedback:evaluation.feedback,modelAnswer:q.answer};s.results.push(result);update(q,r,v);save();persistRound();feedback.innerHTML=explain(q,{...evaluation,rating:r},answer)+'<button id="next">Weiter</button>';document.querySelector('#next').onclick=next};document.querySelector('#self-correct').onclick=()=>decide('correct',1);document.querySelector('#self-partial').onclick=()=>decide('partial',.5);document.querySelector('#self-wrong').onclick=()=>decide('wrong',0);return}
   const result={q,answer,correct:rating==='correct',rating,score,feedback:evaluation.feedback||'',modelAnswer:evaluation.modelAnswer||q.answer};
   s.results.push(result);persistRound();
   if(s.mode==='exam'){next();return}
