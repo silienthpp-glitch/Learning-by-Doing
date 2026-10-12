@@ -11,7 +11,9 @@
   <script defer src="app.js"></script>
 </head>
 <body>
-  <aside>
+  <div class="mobile-topbar"><a class="mobile-brand" href="#dashboard">◈ Learning by Doing</a><div class="mobile-actions"><button id="mobile-theme" class="quiet" aria-label="Darstellung wechseln">◐</button><button id="menu-toggle" type="button" class="quiet" aria-label="Menü öffnen" aria-controls="main-sidebar" aria-expanded="false">☰ Menü</button></div></div>
+  <button id="nav-scrim" type="button" class="nav-scrim" aria-label="Menü schließen" hidden></button>
+  <aside id="main-sidebar">
     <a class="brand" href="#dashboard">
       <span class="logo">L</span>
       <span>Learning<br>by Doing<span class="brand-sub">DEIN LERNTRAINER</span></span>
@@ -22,11 +24,14 @@
       <a href="#dashboard">◫ <span>Dashboard</span></a>
       <a href="#learn">▷ <span>Lernen</span></a>
       <a href="#library">▣ <span>Fächer & Lernsets</span></a>
+      <div class="nav-label nav-section">TRAINING</div>
       <a href="#errors">↻ <span>Fehlertraining</span><b id="error-count">0</b></a>
       <a href="#games">♟ <span>Lernspiele</span></a>
       <a href="#topics">▦ <span>Themen</span></a>
+      <div class="nav-label nav-section">AUSWERTUNG</div>
       <a href="#progress">◴ <span>Fortschritt</span></a>
       <a href="#exam">▤ <span>Prüfungsmodus</span></a>
+      <div class="nav-label nav-section">SYSTEM</div>
       <a href="#guide">? <span>Guide & Hilfe</span></a>
       <a href="#settings">⚙ <span>Einstellungen</span></a>
     </nav>
@@ -43,7 +48,8 @@
       <span>Learning by Doing</span>
       <span class="chip">IHK · Klausuren · Tests</span>
     </header>
-    <div id="storage-warning" role="status"></div>
+    <div id="storage-warning" role="status" aria-live="polite"></div>
+    <div id="ui-announcer" class="sr-only" role="status" aria-live="polite"></div>
     <div id="app"></div>
     <footer>
       Eigene Unterlagen bleiben lokal · Beispielaufgaben sind keine offiziellen IHK-Prüfungen
