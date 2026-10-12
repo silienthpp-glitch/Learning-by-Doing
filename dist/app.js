@@ -89,6 +89,9 @@ function warn(t){const e=document.querySelector('#storage-warning');if(e)e.inner
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{warn('Der Browser kann deinen Fortschritt nicht speichern. Bitte exportiere eine Sicherung.')}}
 
 async function apiJson(path,payload,signal){
+  // Desktop: native Rust-Brücke statt Python-HTTP-Server.
+  // Webversion: unverändert dieselben /api-Endpunkte verwenden.
+  if(window.learningDesktopAI)return window.learningDesktopAI(path,payload,signal);
   const opt=payload===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)};
   let res,data;
   if(signal)opt.signal=signal;
