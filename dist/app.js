@@ -7,6 +7,16 @@ const blank=()=>({version:2,records:{},history:[],custom:[],sets:[],sources:[],g
 let state=blank(),session=null,game=null,message='',aiStatusCache=null;
 const ROUND_KEY='learning-by-doing-round-v1';
 let uiFilter={search:'',subject:'',kind:'',sort:'recent'};
+function confirmAction(message,positive='Bestätigen'){
+  return new Promise(resolve=>{
+    const dlg=document.createElement('dialog');dlg.className='confirm-dialog';
+    dlg.innerHTML='<form method="dialog"><h2>Bitte bestätigen</h2><p>'+esc(message)+'</p><div class="actions"><button type="submit" value="cancel" class="quiet">Abbrechen</button><button type="submit" value="confirm" class="danger-soft">'+esc(positive)+'</button></div></form>';
+    document.body.append(dlg);
+    if(typeof dlg.showModal!=='function'){dlg.remove();resolve(window.confirm(message));return}
+    dlg.addEventListener('close',()=>{const value=dlg.returnValue==='confirm';dlg.remove();resolve(value)},{once:true});
+    dlg.showModal();dlg.querySelector('button[value=cancel]').focus();
+  });
+}
 function announce(t){const node=document.querySelector('#ui-announcer');if(node)node.textContent=t}
 function persistRound(){try{if(session)localStorage.setItem(ROUND_KEY,JSON.stringify({...session,questionIds:session.queue.map(q=>q.id),queue:undefined,savedAt:Date.now()}));else localStorage.removeItem(ROUND_KEY)}catch{}}
 function savedRound(){try{const r=JSON.parse(localStorage.getItem(ROUND_KEY)||'null');if(!r||!Array.isArray(r.questionIds)||!r.questionIds.length)return null;const lookup=new Map(questions().map(q=>[q.id,q]));const queue=r.questionIds.map(k=>lookup.get(k));if(queue.some(q=>!q))return null;return{mode:r.mode,queue,index:Math.min(r.index||0,queue.length-1),answered:false,results:r.results||[]}}catch{return null}}
@@ -878,8 +888,8 @@ function validate(input,allowEmpty=true){
 async function importJson(e){
   const target=document.querySelector('#import-status');try{const f=e.target.files[0];if(!f)return;const added=validate(JSON.parse(await f.text()),false);state.custom.push(...added);state.sources.push({id:id('src'),name:f.name,subject:'Eigene Unterlagen',setId:'',cards:added.length,addedAt:Date.now()});save();message=added.length+' Fragen importiert.';render()}catch(err){if(target)target.textContent='Import nicht möglich: '+err.message}
 }
-function deleteSet(sid){
-  const s=setById(sid);if(!s||!confirm('Lernset „'+s.name+'“ samt importierten Fragen und Dateien löschen?'))return;
+async function deleteSet(sid){
+  const s=setById(sid);if(!s||!await confirmAction('Lernset „'+s.name+'“ samt importierten Fragen und Dateien löschen?','Löschen'))return;
   const ids=new Set(state.custom.filter(q=>q.setId===sid).map(q=>q.id));state.custom=state.custom.filter(q=>q.setId!==sid);state.sources=state.sources.filter(x=>x.setId!==sid);state.sets=state.sets.filter(x=>x.id!==sid);ids.forEach(x=>delete state.records[x]);state.history=state.history.filter(x=>!ids.has(x.id));save();render();
 }
 
@@ -976,7 +986,7 @@ async function restore(e){
     if(![1,2].includes(v.version))throw Error('Unbekannte Sicherungsversion.');
     if(!v.records||typeof v.records!=='object'||Array.isArray(v.records)||!Array.isArray(v.history)||!Array.isArray(v.custom))throw Error('Die Sicherungsdatei ist unvollständig oder beschädigt.');
     if(v.version===2&&(!Array.isArray(v.sets)||!Array.isArray(v.sources)||!Array.isArray(v.games)))throw Error('Die Sicherungsdatei enthält nicht alle benötigten Lernset-Daten.');
-    if(!confirm('Aktuelle Lerndaten durch diese Sicherung ersetzen?'))return;
+    if(!await confirmAction('Aktuelle Lerndaten durch diese Sicherung ersetzen?','Wiederherstellen'))return;
     state=v.version===2?{...blank(),...v}:{...blank(),...v,version:2,sets:[],sources:[],games:[]};
     save();message='Sicherung erfolgreich wiederhergestellt.';render();
   }catch(err){
