@@ -7,6 +7,7 @@ const blank=()=>({version:2,records:{},history:[],custom:[],sets:[],sources:[],g
 let state=blank(),session=null,game=null,message='',aiStatusCache=null;
 const ROUND_KEY='learning-by-doing-round-v1';
 let uiFilter={search:'',subject:'',kind:'',sort:'recent'};
+let activeAiRequest=null;
 function confirmAction(message,positive='Bestätigen'){
   return new Promise(resolve=>{
     const dlg=document.createElement('dialog');dlg.className='confirm-dialog';
@@ -35,10 +36,11 @@ try{
 function warn(t){const e=document.querySelector('#storage-warning');if(e)e.innerHTML='<p class="error-banner">'+esc(t)+'</p>'}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{warn('Der Browser kann deinen Fortschritt nicht speichern. Bitte exportiere eine Sicherung.')}}
 
-async function apiJson(path,payload){
+async function apiJson(path,payload,signal){
   const opt=payload===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)};
   let res,data;
-  try{res=await fetch(path,opt);data=await res.json()}catch(e){throw Error('Der lokale KI-Server ist nicht erreichbar. Starte die Plattform mit python3 start.py und versuche es erneut.')}
+  if(signal)opt.signal=signal;
+  try{res=await fetch(path,opt);data=await res.json()}catch(e){if(e?.name==='AbortError')throw e;throw Error('Der lokale KI-Server ist nicht erreichbar. Starte die Plattform mit python3 start.py und versuche es erneut.')}
   if(!res.ok)throw Error(data?.error||('Anfrage fehlgeschlagen ('+res.status+').'));
   return data;
 }
@@ -139,15 +141,19 @@ async function generateAiSet(form){
   const context=materialContext(subject,topic,setId);
   if(context.length<80){status.innerHTML='<span class="error-text">Zu diesem Thema wurden noch nicht genug passende Unterlagen gefunden. Wähle ein Lernset mit importierten Dateien oder importiere zuerst Unterlagen.</span>';return}
   button.disabled=true;status.textContent=providerName()+' analysiert deine vorhandenen Unterlagen und erstellt passende Fragen … Das kann lokal kurz dauern.';
+  const controller=new AbortController();activeAiRequest=controller;
+  const cancel=document.createElement('button');cancel.type='button';cancel.className='quiet';cancel.textContent='KI-Erstellung abbrechen';status.after(cancel);cancel.onclick=()=>controller.abort();
   try{
-    const result=await apiJson('/api/ai/generate',{provider:state.aiProvider||'ollama',subject,topic,count,context});
+    const result=await apiJson('/api/ai/generate',{provider:state.aiProvider||'ollama',subject,topic,count,context},controller.signal);
+    if(controller.signal.aborted)return;
     const set={id:id('set'),name:'KI · '+topic+' · '+count+' Fragen',subject,kind:'IHK',date:'',createdAt:Date.now(),aiGenerated:true};
     const added=normalizeAiQuestions(result.questions,set,topic,result.analysis||{});
     if(!added.length)throw Error('Die KI hat keine nutzbaren Fragen erzeugt.');
     state.sets.push(set);state.custom.push(...added);save();
     message='KI-Lernset „'+set.name+'“ mit '+added.length+' Fragen erstellt.';
     session=null;start('learn',{setId:set.id,limit:added.length});
-  }catch(e){status.innerHTML='<span class="error-text">'+esc(e.message)+'</span>';button.disabled=false}
+  }catch(e){status.innerHTML='<span class="error-text">'+(e?.name==='AbortError'?'KI-Erstellung abgebrochen. Es wurden keine Fragen gespeichert.':esc(e.message))+'</span>'}
+  finally{if(activeAiRequest===controller)activeAiRequest=null;cancel.remove();button.disabled=false}
 }
 
 
@@ -582,12 +588,12 @@ function localEvaluation(q,answer){
   const ok=correct(q,answer);
   return{rating:ok?'correct':'wrong',score:ok?1:0,feedback:q.explanation||'',modelAnswer:q.answer||''};
 }
-async function evaluateQuestion(q,answer){
+async function evaluateQuestion(q,answer,signal){
   if(!q.aiGenerated)return localEvaluation(q,answer);
   try{
     return await apiJson('/api/ai/evaluate',{provider:state.aiProvider||'ollama',question:{
       type:q.type,prompt:q.prompt,answer:q.answer,correctOptions:q.correctOptions||[],aliases:q.aliases||[],explanation:q.explanation||'',steps:q.steps||[],topic:q.topic,subtopic:q.subtopic||'',points:q.points||1
-    },answer});
+    },answer},signal);
   }catch(e){
     if(['choice','multichoice','truefalse','number'].includes(q.type)){
       const fallback=localEvaluation(q,answer);fallback.feedback=(fallback.feedback?fallback.feedback+' ':'')+'Hinweis: KI-Bewertung war nicht erreichbar; diese eindeutige Aufgabe wurde lokal ausgewertet.';return fallback;
@@ -614,8 +620,10 @@ async function submit(answer){
   const s=session;if(!s||s.answered||!answerPresent(answer))return;const q=s.queue[s.index];
   s.answered=true;document.querySelectorAll('#answer-form input,#answer-form textarea,#answer-form button[type=submit]').forEach(x=>x.disabled=true);
   const feedback=document.querySelector('#feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
-  if(q.aiGenerated)feedback.innerHTML='<div class="hint">'+esc(providerName())+' bewertet deine Antwort …</div>';
-  const evaluation=await evaluateQuestion(q,answer),rating=evaluation.rating||'wrong',score=evaluation.unavailable?null:Number.isFinite(Number(evaluation.score))?Number(evaluation.score):(rating==='correct'?1:rating==='partial'?.5:0);
+  const controller=q.aiGenerated?new AbortController():null;if(controller)activeAiRequest=controller;
+  if(q.aiGenerated){feedback.innerHTML='<div class="hint">'+esc(providerName())+' bewertet deine Antwort …</div><button class="quiet" id="cancel-evaluation" type="button">Bewertung abbrechen</button>';document.querySelector('#cancel-evaluation').onclick=()=>controller.abort()}
+  const evaluation=await evaluateQuestion(q,answer,controller?.signal);if(activeAiRequest===controller)activeAiRequest=null;if(session!==s)return;
+  const rating=evaluation.rating||'wrong',score=evaluation.unavailable?null:Number.isFinite(Number(evaluation.score))?Number(evaluation.score):(rating==='correct'?1:rating==='partial'?.5:0);
   if(evaluation.unavailable){s.answered=false;feedback.innerHTML=explain(q,evaluation,answer)+'<div class="actions"><button id="self-correct">✓ Gewusst</button><button id="self-partial">◐ Teilweise richtig</button><button id="self-wrong">↻ Noch nicht sicher</button></div>';const decide=(r,v)=>{s.answered=true;const result={q,answer,correct:r==='correct',rating:r,score:v,feedback:evaluation.feedback,modelAnswer:q.answer};s.results.push(result);update(q,r,v);save();persistRound();feedback.innerHTML=explain(q,{...evaluation,rating:r},answer)+'<button id="next">Weiter</button>';document.querySelector('#next').onclick=next};document.querySelector('#self-correct').onclick=()=>decide('correct',1);document.querySelector('#self-partial').onclick=()=>decide('partial',.5);document.querySelector('#self-wrong').onclick=()=>decide('wrong',0);return}
   const result={q,answer,correct:rating==='correct',rating,score,feedback:evaluation.feedback||'',modelAnswer:evaluation.modelAnswer||q.answer};
   s.results.push(result);persistRound();
@@ -1000,7 +1008,7 @@ document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{
 window.addEventListener('beforeunload',e=>{
   if(session?.mode==='exam'&&session.results.length){e.preventDefault();e.returnValue='';}
 });
-window.addEventListener('hashchange',()=>{if(session)persistRound();session=null;game=null;render();document.querySelector('#menu-toggle')?.setAttribute('aria-expanded','false');document.body.classList.remove('menu-open');document.querySelector('#nav-scrim').hidden=true});
+window.addEventListener('hashchange',()=>{activeAiRequest?.abort();activeAiRequest=null;if(session)persistRound();session=null;game=null;render();document.querySelector('#menu-toggle')?.setAttribute('aria-expanded','false');document.body.classList.remove('menu-open');document.querySelector('#nav-scrim').hidden=true});
 function setMobileMenu(open){document.body.classList.toggle('menu-open',open);document.querySelector('#menu-toggle').setAttribute('aria-expanded',String(open));document.querySelector('#nav-scrim').hidden=!open;}
 document.querySelector('#menu-toggle')?.addEventListener('click',()=>setMobileMenu(!document.body.classList.contains('menu-open')));
 document.querySelector('#nav-scrim')?.addEventListener('click',()=>setMobileMenu(false));
