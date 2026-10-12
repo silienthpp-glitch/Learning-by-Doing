@@ -423,3 +423,9 @@ input,select,textarea{max-width:100%}
   .motivation-card #motivation-details:not([hidden]){grid-template-columns:56px 1fr}
   .motivation-card .motivation-next{grid-column:1/-1}
 }
+
+.confirm-dialog{border:1px solid var(--line);border-radius:20px;background:var(--panel);color:var(--text);box-shadow:0 35px 90px rgba(0,0,0,.25);padding:24px;width:min(430px,calc(100% - 36px));max-width:100%}
+.confirm-dialog::backdrop{background:rgba(11,18,34,.6);backdrop-filter:blur(3px)}
+.confirm-dialog h2{font-size:1.3rem;margin:0 0 10px}
+.confirm-dialog .actions{justify-content:flex-end;margin-top:24px;flex-wrap:wrap}
+.confirm-dialog button{min-height:44px}
