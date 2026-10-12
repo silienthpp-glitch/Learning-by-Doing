@@ -52,8 +52,13 @@ const BASE = process.env.TEST_URL || 'http://127.0.0.1:8765';
     const field=desktop.locator('#answer-form input[type=text],#answer-form textarea').first();
     if(await field.count())await field.fill('Testantwort');
     await desktop.locator('#end').click();
+    // Prüft explizit einen vollständigen Neuladevorgang – nicht nur Navigation.
     await desktop.goto(BASE+'/#dashboard');
+    await desktop.reload();
     assert(await desktop.locator('#today-primary').innerText()==='Weiterlernen');
+    const stored = await desktop.evaluate(()=>JSON.parse(localStorage.getItem('learning-by-doing-round-v1')));
+    assert(Array.isArray(stored.questionIds));
+    assert(!Object.prototype.hasOwnProperty.call(stored,'queue'),'Fragen dürfen nicht doppelt gespeichert werden');
     await desktop.locator('#today-primary').click();
     assert(await desktop.locator('.question').count()===1);
     if(await field.count()) assert(await field.inputValue()==='Testantwort');
