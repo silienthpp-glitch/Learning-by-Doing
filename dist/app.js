@@ -18,7 +18,7 @@ function confirmAction(message,positive='Bestätigen'){
     dlg.showModal();dlg.querySelector('button[value=cancel]').focus();
   });
 }
-function announce(t){const node=document.querySelector('#ui-announcer');if(node)node.textContent=t}
+function announce(t){const node=document.querySelector('#ui-announcer');if(node)node.textContent=t;const visible=document.querySelector('#visible-notice');if(visible){visible.textContent=t;visible.hidden=!t}}
 function persistRound(){try{if(session)localStorage.setItem(ROUND_KEY,JSON.stringify({...session,questionIds:session.queue.map(q=>q.id),queue:undefined,savedAt:Date.now()}));else localStorage.removeItem(ROUND_KEY)}catch{}}
 function savedRound(){try{const r=JSON.parse(localStorage.getItem(ROUND_KEY)||'null');if(!r||!Array.isArray(r.questionIds)||!r.questionIds.length)return null;const lookup=new Map(questions().map(q=>[q.id,q]));const queue=r.questionIds.map(k=>lookup.get(k));if(queue.some(q=>!q))return null;return{mode:r.mode,queue,index:Math.min(r.index||0,queue.length-1),answered:false,results:r.results||[]}}catch{return null}}
 function resumeRound(){const r=savedRound();if(r){session=r;render()}else{announce('Keine gespeicherte Lernrunde gefunden.');location.hash='learn'}}
@@ -333,7 +333,7 @@ function head(t,s,c='Dein Tempo zählt'){return '<div class="heading"><div><h1>'
 function stats(){
   const today=new Date().toLocaleDateString('sv-SE'),h=state.history.filter(x=>new Date(x.at).toLocaleDateString('sv-SE')===today),l=level();
   return '<div class="grid stats-grid">'+
-    '<div class="card stat-card"><div class="stat-label">Heute beantwortet</div><div class="stat">'+h.length+'</div><div class="small">'+h.filter(x=>historyScore(x)>=.85).length+' richtig · '+h.filter(x=>historyScore(x)<.4).length+' falsch</div></div>'+
+    '<div class="card stat-card"><div class="stat-label">Heute beantwortet</div><div class="stat">'+h.length+'</div><div class="small">'+h.filter(x=>historyScore(x)>=.85).length+' richtig · '+h.filter(x=>historyScore(x)>=.4&&historyScore(x)<.85).length+' teilweise · '+h.filter(x=>historyScore(x)<.4).length+' falsch</div></div>'+
     '<div class="card stat-card"><div class="stat-label">Zur Wiederholung</div><div class="stat">'+errors().length+'</div><div class="small">'+errors().filter(q=>rec(q).due<=Date.now()).length+' jetzt fällig</div></div>'+
     '<div class="card stat-card"><div class="stat-label">Level</div><div class="stat">'+l.n+'</div><div class="small">'+l.xp+' XP insgesamt</div></div>'+
     '<div class="card stat-card"><div class="stat-label">Lernserie</div><div class="stat">'+streak()+'</div><div class="small">Tage in Folge</div></div></div>';
@@ -667,7 +667,7 @@ function summary(early=false){
 function createSet(form){
   const d=new FormData(form),s={id:id('set'),name:String(d.get('name')||'').trim(),subject:String(d.get('subject')||'').trim(),kind:String(d.get('kind')||'Sonstiges').trim(),date:String(d.get('date')||''),createdAt:Date.now()},status=document.querySelector('#set-status');
   if(!s.name||!s.subject){if(status)status.textContent='Bitte Name und Fach ausfüllen.';return}
-  state.sets.push(s);save();message='Lernset „'+s.name+'“ wurde angelegt.';render();
+  state.sets.push(s);save();message='Lernset „'+s.name+'“ wurde angelegt. Füge jetzt passende Unterlagen hinzu.';render();document.querySelector('#library-forms')?.classList.remove('hidden-section');const picker=document.querySelector('#material-set');if(picker){picker.value=s.id;picker.focus()}announce(message);
 }
 async function importMaterials(form){
   const d=new FormData(form),set=setById(String(d.get('setId')||'')),files=[...document.querySelector('#material-files').files],notes=[];if(!set||!files.length)return;
@@ -685,7 +685,7 @@ async function importMaterials(form){
     }
     state.custom.push(...added);state.sources.push({id:id('src'),name:file.name,subject:set.subject,setId:set.id,cards:added.length,excerpt:sourceExcerpt,addedAt:Date.now()});count++;cards+=added.length;
   }catch(e){notes.push(file.name+': '+e.message)}
-  save();message=count+' Datei(en) eingelesen · '+cards+' neue Karten/Fragen.'+(notes.length?' Hinweise: '+notes.join(' | '):'');render();
+  save();message=count+' Datei(en) eingelesen · '+cards+' neue Karten/Fragen.'+(notes.length?' Hinweise: '+notes.join(' | '):'');render();document.querySelector('#library-forms')?.classList.remove('hidden-section');const status=document.querySelector('#material-status');if(status&&count){const next=document.createElement('button');next.type='button';next.textContent='Jetzt mit dem Lernset lernen';next.className='quiet';next.onclick=()=>start('learn',{setId:set.id});status.after(next)}announce(message);
 }
 
 function cleanImportedText(text){
@@ -1009,10 +1009,12 @@ window.addEventListener('beforeunload',e=>{
   if(session?.mode==='exam'&&session.results.length){e.preventDefault();e.returnValue='';}
 });
 window.addEventListener('hashchange',()=>{activeAiRequest?.abort();activeAiRequest=null;if(session)persistRound();session=null;game=null;render();document.querySelector('#menu-toggle')?.setAttribute('aria-expanded','false');document.body.classList.remove('menu-open');document.querySelector('#nav-scrim').hidden=true});
-function setMobileMenu(open){document.body.classList.toggle('menu-open',open);document.querySelector('#menu-toggle').setAttribute('aria-expanded',String(open));document.querySelector('#nav-scrim').hidden=!open;}
+function setMobileMenu(open){document.body.classList.toggle('menu-open',open);document.querySelector('#menu-toggle').setAttribute('aria-expanded',String(open));document.querySelector('#nav-scrim').hidden=!open;const aside=document.querySelector('#main-sidebar');if(aside)aside.inert=!open&&matchMedia('(max-width:900px)').matches;if(open)aside?.querySelector('nav a')?.focus();}
 document.querySelector('#menu-toggle')?.addEventListener('click',()=>setMobileMenu(!document.body.classList.contains('menu-open')));
 document.querySelector('#nav-scrim')?.addEventListener('click',()=>setMobileMenu(false));
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('menu-open'))setMobileMenu(false)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('menu-open')){setMobileMenu(false);document.querySelector('#menu-toggle')?.focus()}});
+window.addEventListener('resize',()=>{if(!matchMedia('(max-width:900px)').matches)setMobileMenu(false);else if(!document.body.classList.contains('menu-open'))document.querySelector('#main-sidebar').inert=true});
+document.querySelector('#main-sidebar').inert=matchMedia('(max-width:900px)').matches;
 document.querySelector('#mobile-theme')?.addEventListener('click',()=>document.querySelector('#theme').click());
 document.querySelector('#theme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';save();render()};
 setInterval(refreshMotivation,60*1000);
