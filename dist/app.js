@@ -5,6 +5,13 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const id=p=>p+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
 const blank=()=>({version:2,records:{},history:[],custom:[],sets:[],sources:[],games:[],theme:'light',quoteShift:0,aiProvider:'ollama'});
 let state=blank(),session=null,game=null,message='',aiStatusCache=null;
+const ROUND_KEY='learning-by-doing-round-v1';
+let uiFilter={search:'',subject:'',kind:'',sort:'recent'};
+function announce(t){const node=document.querySelector('#ui-announcer');if(node)node.textContent=t}
+function persistRound(){try{if(session)localStorage.setItem(ROUND_KEY,JSON.stringify({...session,questionIds:session.queue.map(q=>q.id),queue:undefined,savedAt:Date.now()}));else localStorage.removeItem(ROUND_KEY)}catch{}}
+function savedRound(){try{const r=JSON.parse(localStorage.getItem(ROUND_KEY)||'null');if(!r||!Array.isArray(r.questionIds)||!r.questionIds.length)return null;const lookup=new Map(questions().map(q=>[q.id,q]));const queue=r.questionIds.map(k=>lookup.get(k));if(queue.some(q=>!q))return null;return{mode:r.mode,queue,index:Math.min(r.index||0,queue.length-1),answered:false,results:r.results||[]}}catch{return null}}
+function resumeRound(){const r=savedRound();if(r){session=r;render()}else{announce('Keine gespeicherte Lernrunde gefunden.');location.hash='learn'}}
+
 
 try{
   const v2=JSON.parse(localStorage.getItem(KEY));
@@ -332,9 +339,9 @@ function setCard(s){
 }
 
 function render(){
-  document.body.classList.toggle('dark',state.theme==='dark');
+  document.body.classList.toggle('dark',state.theme==='dark');document.body.classList.toggle('reduced-effects',!!state.reduceEffects);
   const route=location.hash.slice(1)||'dashboard';
-  document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.hash==='#'+route));
+  document.querySelectorAll('nav a').forEach(a=>{const active=a.hash==='#'+route;a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
   document.querySelector('#error-count').textContent=errors().length;
   if(session){renderQuestion();return}
   if(game){renderGame();return}
@@ -349,6 +356,7 @@ function render(){
   else if(route==='settings') settings();
   else{location.hash='dashboard';return}
   bind();
+  setupTilt();
 }
 
 function dashboard(){
@@ -357,8 +365,12 @@ function dashboard(){
     if(ra!==rb)return ra-rb;
     return ra===2?(b.date||'').localeCompare(a.date||''):(a.date||'9999').localeCompare(b.date||'9999');
   }).slice(0,4);
-  app.innerHTML=head('Dein nächster Aha-Moment.','Lerne für IHK, Klausuren und Tests – Fach für Fach und in deinem Tempo.','Level '+l.n)+
-  '<section class="hero"><div><div class="eyebrow">DEINE NÄCHSTE LERNRUNDE</div><h2>Üben, verstehen,<br>noch einmal anwenden.</h2><p>Falsche Antworten werden wiederholt. Eigene Unterlagen kannst du einem Fach und Lernset zuordnen.</p><div class="actions"><button data-start="learn">Lernen starten</button><a class="button quiet" href="#library">Unterlagen hinzufügen</a><a class="button quiet" href="#guide">Guide ansehen</a></div></div><div class="ring" style="--value:'+pct(questions())+'%"><div><strong>'+pct(questions())+'%</strong><small>sicher gelernt</small></div></div></section>'+
+  const due=errors().filter(q=>rec(q).due<=Date.now()).length;
+  const nearest=state.sets.filter(x=>x.date&&x.date>=today).sort((a,b)=>a.date.localeCompare(b.date))[0];
+  const weak=learningInsights().weaknesses[0];
+  const paused=savedRound();
+  app.innerHTML=head('Heute lernen','Dein persönlicher Überblick – ohne unnötige Ablenkung.','Level '+l.n)+
+  '<section class="today-panel tilt-card"><div class="today-copy"><span class="tag">DEIN LERNPLAN</span><h2>Bereit für deine nächste Lernrunde?</h2><p>'+due+' Wiederholungen sind fällig.'+(nearest?' Nächster Termin: '+esc(nearest.name)+' am '+esc(formatDate(nearest.date))+'.':' Noch kein bevorstehender Prüfungstermin.')+'</p><p class="small">'+(weak?'Empfehlung aus deinen bisherigen Antworten: '+esc(weak.name)+' wiederholen.':'Mit weiteren beantworteten Fragen werden Empfehlungen genauer.')+'</p><div class="actions"><button id="today-primary">'+(paused?'Weiterlernen':'Lernrunde starten')+'</button><a class="button quiet" href="#library">Lernsets verwalten</a></div></div><div class="today-progress" title="Anteil sicher gelernter Aufgaben"><div class="ring" style="--value:'+pct(questions())+'%"><div><strong>'+pct(questions())+'%</strong><small>sicher gelernt</small></div></div></div></section>'+
   stats()+insightCards()+motivationCard()+
   '<div class="two"><section class="card"><div class="section-head"><h2>Deine Fächer</h2><a href="#library">Verwalten</a></div>'+rows('subject')+'</section><section class="card"><span class="tag">LEVEL '+l.n+'</span><h2>'+l.cur+' / '+l.step+' XP bis Level '+(l.n+1)+'</h2><progress max="'+l.step+'" value="'+l.cur+'"></progress><p>Richtige Antworten, gemeisterte Aufgaben und Lernspiele geben XP.</p><div class="mini-badges"><span>🔥 '+streak()+' Tage</span><span>🧠 '+questions().filter(mastered).length+' gemeistert</span><span>🎮 '+(state.games||[]).length+' Spiele</span></div></section></div>'+
   '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Deine Klausuren & Tests</h2><a href="#library">Neues Lernset</a></div>'+(active.length?'<div class="set-grid">'+active.map(setCard).join('')+'</div>':'<div class="empty-state"><strong>Noch kein eigenes Lernset.</strong><p>Lege zum Beispiel „Netzwerktechnik Klausur 2“ oder „WiSo Test Freitag“ an.</p><a class="button" href="#library">Erstes Lernset anlegen</a></div>')+'</section>';
@@ -369,9 +381,34 @@ function learn(route){
   app.innerHTML=head(err?'Aus Fehlern wird Verständnis.':'Was möchtest du heute lernen?',err?'Hier wiederholst du Aufgaben, die noch nicht sicher sitzen.':'Wähle Fach, Thema oder Lernset. Du kannst auch alles mischen.')+
   '<section class="card"><h2>'+(err?'Deine Wiederholungsrunde':'Eine Frage nach der anderen')+'</h2><p>'+(err?errors().length+' Aufgaben sind noch in Wiederholung.':'Fällige Wiederholungen kommen zuerst. Lernkarten aus PDFs bewertest du selbst mit „Gewusst“ oder „Noch nicht“.')+'</p>'+
   '<div class="filter-grid"><label>Fach<select id="subject-select"><option value="">Alle Fächer</option>'+subjects().map(s=>'<option>'+esc(s)+'</option>').join('')+'</select></label><label>Thema<select id="topic-select"><option value="">Alle Themen</option>'+topics().map(t=>'<option>'+esc(t)+'</option>').join('')+'</select></label><label>Lernset<select id="set-select"><option value="">Alle Lernsets</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label></div>'+
-  '<div class="actions"><button data-start="'+route+'">'+(err?'Wiederholung starten':'Lernrunde starten')+'</button></div><div class="hint">Eine Runde enthält bis zu 10 Aufgaben. Falsche Antworten kommen nach einigen anderen Fragen erneut.</div></section>';
+  '<p id="matching-count" class="small" role="status" aria-live="polite"></p><div class="actions"><button data-start="'+route+'">'+(err?'Wiederholung starten':'Lernrunde starten')+'</button></div><div class="hint">Eine Runde enthält bis zu 10 Aufgaben. Falsche Antworten kommen nach einigen anderen Fragen erneut.</div></section>';
+  updateMatchingCount();
 }
 
+function filteredQuestions(route){
+  let list=route==='errors'?errors():questions();
+  const subject=document.querySelector('#subject-select')?.value||'';
+  const topic=document.querySelector('#topic-select')?.value||'';
+  const setId=document.querySelector('#set-select')?.value||'';
+  if(subject)list=list.filter(q=>q.subject===subject);
+  if(topic)list=list.filter(q=>q.topic===topic);
+  if(setId)list=list.filter(q=>q.setId===setId);
+  return list;
+}
+function updateMatchingCount(){
+  const route=location.hash.slice(1)||'learn',sub=document.querySelector('#subject-select'),topic=document.querySelector('#topic-select'),set=document.querySelector('#set-select');
+  if(!sub||!topic||!set)return;
+  const currentTopic=topic.value,currentSet=set.value;
+  const possible=questions().filter(q=>!sub.value||q.subject===sub.value);
+  topic.innerHTML='<option value="">Alle Themen</option>'+[...new Set(possible.map(q=>q.topic).filter(Boolean))].sort().map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+  if([...topic.options].some(o=>o.value===currentTopic))topic.value=currentTopic;
+  set.innerHTML='<option value="">Alle Lernsets</option>'+state.sets.filter(x=>!sub.value||x.subject===sub.value).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+' · '+esc(x.subject)+'</option>').join('');
+  if([...set.options].some(o=>o.value===currentSet))set.value=currentSet;
+  const n=filteredQuestions(route).length;
+  document.querySelector('#matching-count').textContent=n+' passende Aufgaben gefunden.';
+  const button=document.querySelector('[data-start="'+route+'"]');if(button)button.disabled=n===0;
+}
+function setupTilt(){if(state.reduceEffects||matchMedia('(prefers-reduced-motion: reduce)').matches||!matchMedia('(hover: hover) and (pointer: fine)').matches)return;document.querySelectorAll('.tilt-card').forEach(card=>{card.onpointermove=e=>{const box=card.getBoundingClientRect(),x=(e.clientX-box.left)/box.width-.5,y=(e.clientY-box.top)/box.height-.5;card.style.transform='perspective(1000px) rotateX('+(-y*2.3)+'deg) rotateY('+(x*2.3)+'deg)'};card.onpointerleave=()=>card.style.transform='';});}
 function library(){
   const subjectOptions=subjects(),topicOptions=topics();
   app.innerHTML=head('Fächer, Klausuren und Tests.','Organisiere Unterlagen wie bisher oder erstelle direkt ein KI-Lernset aus deinen vorhandenen Dokumenten.',state.sets.length+' Lernsets')+
@@ -440,6 +477,7 @@ function settings(){
   '<label class="provider-choice '+(state.aiProvider==='openai'?'selected':'')+'"><input type="radio" name="ai-provider" value="openai" '+(state.aiProvider==='openai'?'checked':'')+'><div><strong>🔵 OpenAI – optional</strong><p>Wird nur verwendet, wenn du es auswählst und serverseitig einen API-Key eingerichtet hast.</p><div id="openai-status">'+aiStatusHtml('openai')+'</div></div></label></div></section>'+
   '<div class="two" style="margin-top:24px"><section class="card"><span class="tag">OLLAMA STARTEN</span><h2>Wenn die lokale KI rot ist</h2><p>Öffne die Ollama-App oder führe im Terminal aus:</p><pre class="command-box">ollama serve</pre><p>Empfohlenes Modell für einen modernen Mac:</p><pre class="command-box">ollama pull qwen3.5:4b</pre><p>Prüfen:</p><pre class="command-box">ollama list</pre><button id="ai-recheck" class="quiet">Status erneut prüfen</button></section>'+
   '<section class="card"><span class="tag">OPENAI · OPTIONAL</span><h2>API-Key bleibt außerhalb des Frontends</h2><p>Erstelle im Projektordner eine Datei <strong>.env</strong> und trage dort bei Bedarf ein:</p><pre class="command-box">OPENAI_API_KEY=dein_key_hier\nOPENAI_MODEL=gpt-6-luna</pre><p class="small">Die .env-Datei wird durch .gitignore nicht zu GitHub hochgeladen. Ohne Key funktioniert die Plattform weiterhin vollständig mit Ollama.</p></section></div>';
+  app.insertAdjacentHTML('beforeend','<section class="card" style="margin-top:24px"><h2>Darstellung</h2><label class="toggle-setting"><input id="reduce-effects" type="checkbox" '+(state.reduceEffects?'checked':'')+'> Dezente 3D-Effekte ausschalten</label></section>');
   setTimeout(refreshAiStatus,0);
 }
 
@@ -460,7 +498,8 @@ function start(mode,opt={}){
   if(mode==='exam')list=shuffle(list.filter(q=>q.type!=='selfcheck'));
   else list.sort((a,b)=>{const rank=q=>rec(q).attempts&&rec(q).due<=Date.now()?0:!rec(q).attempts?1:2;return rank(a)-rank(b)||rec(a).due-rec(b).due});
   const requested=Number(opt.limit||(mode==='exam'?document.querySelector('#exam-count')?.value:10)||10),limit=Math.max(1,Math.min(30,requested));
-  session={mode,queue:list.slice(0,limit),index:0,answered:false,results:[]};render();
+  if(!list.length){announce('Keine passenden Aufgaben. Bitte ändere die Filter oder importiere Unterlagen.');return}
+  session={mode,queue:list.slice(0,limit),index:0,answered:false,results:[]};persistRound();render();
 }
 
 function questionInput(q){
@@ -493,7 +532,11 @@ function renderQuestion(){
   '<div id="feedback"></div></section>';
   if(self)document.querySelector('#reveal').onclick=()=>reveal(q);
   else document.querySelector('#answer-form').onsubmit=e=>{e.preventDefault();submit(formAnswer(e.target,q))};
-  document.querySelector('#end').onclick=()=>{if(s.mode==='exam'&&s.results.length)summary(true);else{session=null;render()}};
+  document.querySelector('#end').textContent='Pause / Beenden';
+  document.querySelector('#end').onclick=()=>{persistRound();session=null;location.hash='dashboard';render();announce('Lernrunde pausiert. Du kannst sie über Weiterlernen fortsetzen.')};
+  const form=document.querySelector('#answer-form');const key='learning-by-doing-draft-'+q.id;
+  const prev=session.drafts?.[q.id];if(form&&prev!==undefined){if(Array.isArray(prev))form.querySelectorAll('input[name=answer]').forEach(i=>i.checked=prev.includes(i.value));else if(form.elements.answer){const input=form.elements.answer;if(input instanceof RadioNodeList){[...form.querySelectorAll('input[name=answer]')].forEach(i=>i.checked=i.value===prev)}else input.value=prev}}
+  form?.addEventListener('input',()=>{session.drafts=session.drafts||{};session.drafts[q.id]=formAnswer(form,q);persistRound()});
 }
 function norm(v){return String(v??'').trim().toLowerCase().replace(/,/g,'.').replace(/\s+/g,' ')}
 function numericValue(v){
@@ -551,7 +594,7 @@ async function submit(answer){
   if(q.aiGenerated)feedback.innerHTML='<div class="hint">'+esc(providerName())+' bewertet deine Antwort …</div>';
   const evaluation=await evaluateQuestion(q,answer),rating=evaluation.rating||'wrong',score=Number.isFinite(Number(evaluation.score))?Number(evaluation.score):(rating==='correct'?1:rating==='partial'?.5:0);
   const result={q,answer,correct:rating==='correct',rating,score,feedback:evaluation.feedback||'',modelAnswer:evaluation.modelAnswer||q.answer};
-  s.results.push(result);
+  s.results.push(result);persistRound();
   if(s.mode==='exam'){next();return}
   update(q,rating,score);save();
   if(rating!=='correct'&&s.queue.length<30)s.queue.splice(Math.min(s.index+3,s.queue.length),0,q);
@@ -568,7 +611,7 @@ function selfDone(q,ok){
   if(!ok&&session.queue.length<30)session.queue.splice(Math.min(session.index+3,session.queue.length),0,q);
   document.querySelector('#feedback').innerHTML+='<div class="hint">'+(ok?'Gut. Die Karte kommt später wieder.':'Die Karte taucht in dieser Runde erneut auf.')+'</div><button id="next">Weiter</button>';document.querySelector('#next').onclick=next;
 }
-function next(){session.index++;session.answered=false;renderQuestion();window.scrollTo({top:0,behavior:'smooth'})}
+function next(){session.index++;session.answered=false;persistRound();renderQuestion();window.scrollTo({top:0,behavior:'smooth'})}
 function topicBreakdown(res){
   const map=new Map();res.forEach(x=>{const key=x.q.topic||x.q.subject||'Allgemein',g=map.get(key)||{name:key,earned:0,possible:0};const p=x.q.points||1;g.earned+=p*(Number.isFinite(x.score)?x.score:(x.correct?1:0));g.possible+=p;map.set(key,g)});
   return [...map.values()].map(x=>({...x,pct:x.possible?Math.round(x.earned/x.possible*100):0})).sort((a,b)=>a.pct-b.pct);
@@ -586,7 +629,7 @@ function summary(early=false){
   (s.mode==='exam'?'<section class="card" style="margin-top:20px"><h2>Ergebnis nach Thema</h2>'+breakdown.map(x=>'<div class="topic-row"><div class="topic-line"><strong>'+esc(x.name)+'</strong><small>'+x.pct+'%</small></div><progress max="100" value="'+x.pct+'"></progress></div>').join('')+
     (weak.length?'<div class="hint"><strong>Diese Themen solltest du noch einmal lernen:</strong> '+weak.map(x=>esc(x.name)).join(', ')+'</div>':'<div class="hint"><strong>Stark:</strong> Kein ausgewertetes Thema liegt unter 70 %.</div>')+'</section>'+
     res.map(x=>'<section class="question" style="margin-top:20px"><h3>'+esc(x.q.prompt)+'</h3>'+explain(x,{rating:x.rating||'wrong',score:x.score,feedback:x.feedback,modelAnswer:x.modelAnswer},x.answer)+'</section>').join(''):'');
-  session=null;document.querySelector('#finish').onclick=()=>{location.hash='dashboard';render()};
+  session=null;persistRound();document.querySelector('#finish').onclick=()=>{location.hash='dashboard';render()};
 }
 
 function createSet(form){
@@ -884,6 +927,8 @@ function finishGame(){game=null;location.hash='games';render()}
 
 function bind(){
   document.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>start(b.dataset.start));
+  document.querySelector('#today-primary')?.addEventListener('click',()=>savedRound()?resumeRound():(location.hash='learn'));
+  for(const name of ['subject','topic','set'])document.querySelector('#'+name+'-select')?.addEventListener('change',updateMatchingCount);
   document.querySelector('#motivation-next')?.addEventListener('click',()=>{state.quoteShift=(Number(state.quoteShift)||0)+1;save();refreshMotivation();});
   document.querySelectorAll('[data-topic]').forEach(b=>b.onclick=()=>start('learn',{topic:b.dataset.topic}));
   document.querySelectorAll('[data-set-learn]').forEach(b=>b.onclick=()=>{const sid=b.dataset.setLearn;start('learn',{setId:sid,limit:Math.min(30,Math.max(10,bySet(sid).length))})});
@@ -894,6 +939,7 @@ function bind(){
   document.querySelector('#ai-set-form')?.addEventListener('submit',e=>{e.preventDefault();generateAiSet(e.currentTarget)});
   document.querySelectorAll('input[name="ai-provider"]').forEach(r=>r.addEventListener('change',e=>{state.aiProvider=e.target.value;save();settings();bind()}));
   document.querySelector('#ai-recheck')?.addEventListener('click',refreshAiStatus);
+  document.querySelector('#reduce-effects')?.addEventListener('change',e=>{state.reduceEffects=e.target.checked;save();document.body.classList.toggle('reduced-effects',state.reduceEffects);render()});
   document.querySelector('#import')?.addEventListener('change',importJson);
   document.querySelector('#export')?.addEventListener('click',()=>download('learning-by-doing-sicherung.json',state));
   document.querySelector('#restore')?.addEventListener('change',restore);
@@ -922,7 +968,12 @@ document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{
 window.addEventListener('beforeunload',e=>{
   if(session?.mode==='exam'&&session.results.length){e.preventDefault();e.returnValue='';}
 });
-window.addEventListener('hashchange',()=>{session=null;game=null;render()});
+window.addEventListener('hashchange',()=>{if(session)persistRound();session=null;game=null;render();document.querySelector('#menu-toggle')?.setAttribute('aria-expanded','false');document.body.classList.remove('menu-open');document.querySelector('#nav-scrim').hidden=true});
+function setMobileMenu(open){document.body.classList.toggle('menu-open',open);document.querySelector('#menu-toggle').setAttribute('aria-expanded',String(open));document.querySelector('#nav-scrim').hidden=!open;}
+document.querySelector('#menu-toggle')?.addEventListener('click',()=>setMobileMenu(!document.body.classList.contains('menu-open')));
+document.querySelector('#nav-scrim')?.addEventListener('click',()=>setMobileMenu(false));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('menu-open'))setMobileMenu(false)});
+document.querySelector('#mobile-theme')?.addEventListener('click',()=>document.querySelector('#theme').click());
 document.querySelector('#theme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';save();render()};
 setInterval(refreshMotivation,60*1000);
 render();
