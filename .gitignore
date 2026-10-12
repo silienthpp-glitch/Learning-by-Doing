@@ -9,3 +9,14 @@ learning-by-doing-sicherung*.json
 .env
 .env.*
 !.env.example
+
+# Desktop-Builds und automatisch generierte Dateien
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/*.png
+src-tauri/icons/*.ico
+src-tauri/icons/*.icns
+
+# Lokale IHK-Unterlagen niemals versehentlich hochladen
+IHK-Unterlagen/
