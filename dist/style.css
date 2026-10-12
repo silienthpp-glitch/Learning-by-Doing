@@ -434,3 +434,12 @@ input,select,textarea{max-width:100%}
 .dark #visible-notice{background:var(--panel-2)}
 button:disabled{opacity:.56;cursor:not-allowed;transform:none!important}
 @media(max-width:900px){#visible-notice:not([hidden]){width:calc(100% - 28px)}}
+
+/* Fix: Sidebar bleibt auch bei kleinen Desktop-Höhen erreichbar */
+@media(min-width:901px){
+  body aside{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#53617c transparent}
+  body aside .sidebar-bottom{flex-shrink:0}
+  body aside .nav-label{margin-top:16px}
+  body aside nav{gap:2px}
+  body aside nav a{padding-top:9px;padding-bottom:9px}
+}
