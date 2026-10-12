@@ -1,0 +1,13 @@
+{
+  "name": "learning-by-doing-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "desktop:icons": "tauri icon src-tauri/icons/app-icon.svg"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}
