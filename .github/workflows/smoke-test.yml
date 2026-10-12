@@ -2,7 +2,7 @@ name: Learning by Doing Smoke Test
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/modern-learning-gui]
   workflow_dispatch:
 
 jobs:

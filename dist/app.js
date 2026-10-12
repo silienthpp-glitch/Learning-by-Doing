@@ -5,6 +5,75 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const id=p=>p+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
 const blank=()=>({version:2,records:{},history:[],custom:[],sets:[],sources:[],games:[],theme:'light',quoteShift:0,aiProvider:'ollama'});
 let state=blank(),session=null,game=null,message='',aiStatusCache=null;
+const ROUND_KEY='learning-by-doing-round-v1';
+let uiFilter={search:'',subject:'',kind:'',sort:'recent'};
+let activeAiRequest=null;
+function confirmAction(message,positive='Bestätigen'){
+  return new Promise(resolve=>{
+    const dlg=document.createElement('dialog');dlg.className='confirm-dialog';
+    dlg.innerHTML='<form method="dialog"><h2>Bitte bestätigen</h2><p>'+esc(message)+'</p><div class="actions"><button type="submit" value="cancel" class="quiet">Abbrechen</button><button type="submit" value="confirm" class="danger-soft">'+esc(positive)+'</button></div></form>';
+    document.body.append(dlg);
+    if(typeof dlg.showModal!=='function'){dlg.remove();resolve(window.confirm(message));return}
+    dlg.addEventListener('close',()=>{const value=dlg.returnValue==='confirm';dlg.remove();resolve(value)},{once:true});
+    dlg.showModal();dlg.querySelector('button[value=cancel]').focus();
+  });
+}
+function announce(t){const node=document.querySelector('#ui-announcer');if(node)node.textContent=t;const visible=document.querySelector('#visible-notice');if(visible){visible.textContent=t;visible.hidden=!t}}
+/**
+ * Speichert nur kleine Metadaten der laufenden Runde.
+ * Die Fragen selbst liegen schon in state.custom bzw. questions.js und werden
+ * deshalb nicht ein zweites Mal im Browser-Speicher abgelegt.
+ */
+function persistRound(){
+  try{
+    if(!session){localStorage.removeItem(ROUND_KEY);return}
+    const snapshot={
+      mode:session.mode,
+      questionIds:session.queue.map(q=>q.id),
+      index:session.index,
+      drafts:session.drafts||{},
+      results:(session.results||[]).map(r=>({
+        questionId:r.q?.id||r.questionId,
+        answer:r.answer,
+        correct:r.correct,
+        rating:r.rating,
+        score:r.score,
+        feedback:r.feedback,
+        modelAnswer:r.modelAnswer
+      })),
+      savedAt:Date.now()
+    };
+    localStorage.setItem(ROUND_KEY,JSON.stringify(snapshot));
+  }catch{
+    // Der Browser kann voll sein. Die laufende Runde funktioniert dann weiter,
+    // auch wenn ein erneutes Laden sie möglicherweise nicht wiederherstellt.
+  }
+}
+/**
+ * Stellt pausierte Runden anhand ihrer Frage-IDs wieder her.
+ * Ältere gespeicherte Runden enthalten direkt vollständige Fragen in results.
+ * Beide Formate bleiben lesbar, damit keine bestehenden Lernstände verloren gehen.
+ */
+function savedRound(){
+  try{
+    const snapshot=JSON.parse(localStorage.getItem(ROUND_KEY)||'null');
+    if(!snapshot||!Array.isArray(snapshot.questionIds)||!snapshot.questionIds.length)return null;
+    const lookup=new Map(questions().map(q=>[q.id,q]));
+    const queue=snapshot.questionIds.map(key=>lookup.get(key));
+    if(queue.some(q=>!q))return null;
+    const results=(snapshot.results||[]).map(result=>{
+      const question=result.q||lookup.get(result.questionId);
+      return question?{...result,q:question}:null;
+    }).filter(Boolean);
+    return{
+      mode:snapshot.mode||'learn',
+      queue,index:Math.min(Math.max(snapshot.index||0,0),queue.length-1),
+      answered:false,results,drafts:snapshot.drafts||{}
+    };
+  }catch{return null}
+}
+function resumeRound(){const r=savedRound();if(r){session=r;render()}else{announce('Keine gespeicherte Lernrunde gefunden.');location.hash='learn'}}
+
 
 try{
   const v2=JSON.parse(localStorage.getItem(KEY));
@@ -16,12 +85,14 @@ try{
 }catch{warn('Gespeicherte Daten konnten nicht geladen werden.');}
 
 function warn(t){const e=document.querySelector('#storage-warning');if(e)e.innerHTML='<p class="error-banner">'+esc(t)+'</p>'}
+/** Speichert Lernsets, Erfolge und Einstellungen lokal im Browser (ohne Cloud). */
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{warn('Der Browser kann deinen Fortschritt nicht speichern. Bitte exportiere eine Sicherung.')}}
 
-async function apiJson(path,payload){
+async function apiJson(path,payload,signal){
   const opt=payload===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)};
   let res,data;
-  try{res=await fetch(path,opt);data=await res.json()}catch(e){throw Error('Der lokale KI-Server ist nicht erreichbar. Starte die Plattform mit python3 start.py und versuche es erneut.')}
+  if(signal)opt.signal=signal;
+  try{res=await fetch(path,opt);data=await res.json()}catch(e){if(e?.name==='AbortError')throw e;throw Error('Der lokale KI-Server ist nicht erreichbar. Starte die Plattform mit python3 start.py und versuche es erneut.')}
   if(!res.ok)throw Error(data?.error||('Anfrage fehlgeschlagen ('+res.status+').'));
   return data;
 }
@@ -30,7 +101,8 @@ function aiStatusHtml(kind){
   const s=aiStatusCache?.[kind];
   if(!s)return '<span class="ai-state checking">● Status wird geprüft …</span>';
   if(kind==='ollama'){
-    if(s.reachable&&s.modelReady)return '<span class="ai-state online">● Lokale KI verbunden</span><small>'+esc(s.activeModel||s.preferredModel||'Ollama')+'</small>';
+    if(s.reachable&&s.modelReady)return '<span class="ai-state online">● KI bereit: Lokale KI verbunden</span><small>'+esc(s.activeModel||s.preferredModel||'Ollama')+'</small>';
+    if(s.reachable&&!s.modelReady)return '<span class="ai-state offline">● Ollama verbunden – Modell fehlt</span><small>'+esc(s.message||'Bitte Modell installieren.')+'</small>';
     return '<span class="ai-state offline">● Lokale KI nicht erreichbar</span><small>'+esc(s.message||'Ollama starten und Modell installieren.')+'</small>';
   }
   return s.available?'<span class="ai-state online">● OpenAI verfügbar</span><small>'+esc(s.model||'')+'</small>':'<span class="ai-state neutral">● OpenAI nicht eingerichtet</span><small>Optional · API-Key bleibt ausschließlich in .env</small>';
@@ -63,35 +135,50 @@ function learningInsights(){
   const last=h[h.length-1],lastQ=last?questions().find(q=>q.id===last.id):null;
   return{strengths,weaknesses,last,lastQ};
 }
+/**
+ * Bereitet ausschließlich lokale Unterlagen als KI-Kontext vor.
+ * Das feste Zeichenlimit verhindert große Ollama-Anfragen und unnötigen RAM-Bedarf.
+ * Mit usedChars statt wiederholtem parts.join() wächst die Laufzeit annähernd linear.
+ */
 function materialContext(subject,topic,setId=''){
-  const term=String(topic||'').trim().toLowerCase(),parts=[],seen=new Set();
-  let sources=(state.sources||[]);
-  if(setId)sources=sources.filter(s=>s.setId===setId);
-  else if(subject)sources=sources.filter(s=>(s.subject||'').toLowerCase()===subject.toLowerCase());
-  for(const s of sources){
-    const excerpt=String(s.excerpt||'').replace(/\s+/g,' ').trim();
-    if(excerpt.length<40)continue;
-    const key=('source|'+s.name+'|'+excerpt.slice(0,300)).toLowerCase();
-    if(seen.has(key))continue;seen.add(key);parts.push('['+(s.name||'Unterlage')+'] '+excerpt);
-    if(parts.join('\n\n').length>22000)break;
+  const limit=30000,parts=[],seen=new Set();
+  let usedChars=0;
+  const addPart=(source,raw)=>{
+    const cleaned=String(raw||'').replace(/\s+/g,' ').trim();
+    if(cleaned.length<20)return;
+    const key=(source+'|'+cleaned.slice(0,500)).toLowerCase();
+    if(seen.has(key))return;
+    seen.add(key);
+    const available=limit-usedChars-(parts.length?2:0);
+    if(available<=0)return;
+    const part=('['+source+'] '+cleaned).slice(0,available);
+    parts.push(part);
+    usedChars+=part.length+(parts.length>1?2:0);
+  };
+  const normalizedSubject=String(subject||'').toLowerCase();
+  let sources=state.sources||[];
+  if(setId)sources=sources.filter(src=>src.setId===setId);
+  else if(subject)sources=sources.filter(src=>(src.subject||'').toLowerCase()===normalizedSubject);
+  for(const src of sources){
+    if(usedChars>=22000)break;
+    addPart(src.name||'Unterlage',src.excerpt);
   }
-
   let list=(state.custom||[]).filter(q=>!q.aiGenerated);
   if(setId)list=list.filter(q=>q.setId===setId);
-  else if(subject)list=list.filter(q=>(q.subject||'').toLowerCase()===subject.toLowerCase());
+  else if(subject)list=list.filter(q=>(q.subject||'').toLowerCase()===normalizedSubject);
+  const term=String(topic||'').trim().toLowerCase();
   if(term){
-    const matching=list.filter(q=>[q.topic,q.prompt,q.answer,q.explanation,q.sourceName].some(v=>String(v||'').toLowerCase().includes(term)));
-    if(matching.length>=2)list=matching;
+    const relevant=list.filter(q=>[q.topic,q.prompt,q.answer,q.explanation,q.sourceName].some(
+      value=>String(value||'').toLowerCase().includes(term)));
+    if(relevant.length>=2)list=relevant;
   }
-  if(!list.length&&subject)list=questions().filter(q=>!q.aiGenerated&&(q.subject||'').toLowerCase()===subject.toLowerCase());
+  if(!list.length&&subject)list=questions().filter(q=>!q.aiGenerated&&(q.subject||'').toLowerCase()===normalizedSubject);
   for(const q of list){
-    const source=q.sourceName||setById(q.setId)?.name||'Unterlage',text=[q.prompt,q.answer,q.explanation].filter(Boolean).join(' ');
-    const key=(source+'|'+text).toLowerCase().replace(/\s+/g,' ').slice(0,500);
-    if(text.length<20||seen.has(key))continue;
-    seen.add(key);parts.push('['+source+'] '+text.replace(/\s+/g,' ').trim());
-    if(parts.join('\n\n').length>30000)break;
+    if(usedChars>=limit)break;
+    const source=q.sourceName||setById(q.setId)?.name||'Unterlage';
+    addPart(source,[q.prompt,q.answer,q.explanation].filter(Boolean).join(' '));
   }
-  return parts.join('\n\n').slice(0,30000);
+  return parts.join('\n\n');
 }
 
 function normalizeAiQuestions(items,set,topic,meta={}){
@@ -113,6 +200,7 @@ function normalizeAiQuestions(items,set,topic,meta={}){
     };
   }).filter(q=>q.prompt&&q.answer);
 }
+/** Verwendet vorhandene Unterlagen als Grundlage; neue Fragen erst nach erfolgreicher KI-Antwort speichern. */
 async function generateAiSet(form){
   const d=new FormData(form),subject=String(d.get('subject')||'').trim(),topic=String(d.get('topic')||'').trim(),
     setId=String(d.get('sourceSet')||''),count=Number(d.get('count')||10),status=document.querySelector('#ai-generate-status'),
@@ -121,15 +209,19 @@ async function generateAiSet(form){
   const context=materialContext(subject,topic,setId);
   if(context.length<80){status.innerHTML='<span class="error-text">Zu diesem Thema wurden noch nicht genug passende Unterlagen gefunden. Wähle ein Lernset mit importierten Dateien oder importiere zuerst Unterlagen.</span>';return}
   button.disabled=true;status.textContent=providerName()+' analysiert deine vorhandenen Unterlagen und erstellt passende Fragen … Das kann lokal kurz dauern.';
+  const controller=new AbortController();activeAiRequest=controller;
+  const cancel=document.createElement('button');cancel.type='button';cancel.className='quiet';cancel.textContent='KI-Erstellung abbrechen';status.after(cancel);cancel.onclick=()=>controller.abort();
   try{
-    const result=await apiJson('/api/ai/generate',{provider:state.aiProvider||'ollama',subject,topic,count,context});
+    const result=await apiJson('/api/ai/generate',{provider:state.aiProvider||'ollama',subject,topic,count,context},controller.signal);
+    if(controller.signal.aborted)return;
     const set={id:id('set'),name:'KI · '+topic+' · '+count+' Fragen',subject,kind:'IHK',date:'',createdAt:Date.now(),aiGenerated:true};
     const added=normalizeAiQuestions(result.questions,set,topic,result.analysis||{});
     if(!added.length)throw Error('Die KI hat keine nutzbaren Fragen erzeugt.');
     state.sets.push(set);state.custom.push(...added);save();
     message='KI-Lernset „'+set.name+'“ mit '+added.length+' Fragen erstellt.';
     session=null;start('learn',{setId:set.id,limit:added.length});
-  }catch(e){status.innerHTML='<span class="error-text">'+esc(e.message)+'</span>';button.disabled=false}
+  }catch(e){status.innerHTML='<span class="error-text">'+(e?.name==='AbortError'?'KI-Erstellung abgebrochen. Es wurden keine Fragen gespeichert.':esc(e.message))+'</span>'}
+  finally{if(activeAiRequest===controller)activeAiRequest=null;cancel.remove();button.disabled=false}
 }
 
 
@@ -265,7 +357,7 @@ function motivationIndex(){
 }
 function motivationCard(){
   const q=MOTIVATION_QUOTES[motivationIndex()];
-  return '<section class="motivation-card" id="motivation-card"><div class="motivation-icon">'+esc(q.icon)+'</div><div class="motivation-copy"><div class="motivation-top"><span class="tag">'+esc(q.category)+'</span><span class="small">wechselt automatisch</span></div><blockquote>„'+esc(q.text)+'“</blockquote><p>'+esc(q.source)+'</p></div><button class="quiet motivation-next" id="motivation-next" type="button" title="Anderen Motivationsspruch anzeigen">↻ Neuer Spruch</button></section>';
+  return '<section class="motivation-card" id="motivation-card"><button class="quiet motivation-collapse" type="button" id="motivation-toggle" aria-expanded="'+(!state.motivationCollapsed)+'" aria-controls="motivation-details">'+(state.motivationCollapsed?'Motivation anzeigen':'Motivation einklappen')+'</button><div id="motivation-details" '+(state.motivationCollapsed?'hidden':'')+'><div class="motivation-icon">'+esc(q.icon)+'</div><div class="motivation-copy"><div class="motivation-top"><span class="tag">'+esc(q.category)+'</span><span class="small">wechselt automatisch</span></div><blockquote>„'+esc(q.text)+'“</blockquote><p>'+esc(q.source)+'</p></div><button class="quiet motivation-next" id="motivation-next" type="button" title="Anderen Motivationsspruch anzeigen">↻ Neuer Spruch</button></div></section>';
 }
 function refreshMotivation(){
   const node=document.querySelector('#motivation-card');
@@ -277,6 +369,7 @@ function refreshMotivation(){
   node.querySelector('.motivation-copy > p').textContent=q.source;
 }
 
+/** Kombiniert mitgelieferte Beispielfragen und deine importierten Fragen. */
 function questions(){
   return [...(window.EXAMPLE_QUESTIONS||[]).map(q=>({...q,subject:q.subject||'IHK AP2',setId:q.setId||'',sourceName:q.sourceName||'Beispielaufgaben'})),...(state.custom||[])];
 }
@@ -309,7 +402,7 @@ function head(t,s,c='Dein Tempo zählt'){return '<div class="heading"><div><h1>'
 function stats(){
   const today=new Date().toLocaleDateString('sv-SE'),h=state.history.filter(x=>new Date(x.at).toLocaleDateString('sv-SE')===today),l=level();
   return '<div class="grid stats-grid">'+
-    '<div class="card stat-card"><div class="stat-label">Heute beantwortet</div><div class="stat">'+h.length+'</div><div class="small">'+h.filter(x=>historyScore(x)>=.85).length+' richtig · '+h.filter(x=>historyScore(x)<.4).length+' falsch</div></div>'+
+    '<div class="card stat-card"><div class="stat-label">Heute beantwortet</div><div class="stat">'+h.length+'</div><div class="small">'+h.filter(x=>historyScore(x)>=.85).length+' richtig · '+h.filter(x=>historyScore(x)>=.4&&historyScore(x)<.85).length+' teilweise · '+h.filter(x=>historyScore(x)<.4).length+' falsch</div></div>'+
     '<div class="card stat-card"><div class="stat-label">Zur Wiederholung</div><div class="stat">'+errors().length+'</div><div class="small">'+errors().filter(q=>rec(q).due<=Date.now()).length+' jetzt fällig</div></div>'+
     '<div class="card stat-card"><div class="stat-label">Level</div><div class="stat">'+l.n+'</div><div class="small">'+l.xp+' XP insgesamt</div></div>'+
     '<div class="card stat-card"><div class="stat-label">Lernserie</div><div class="stat">'+streak()+'</div><div class="small">Tage in Folge</div></div></div>';
@@ -331,10 +424,11 @@ function setCard(s){
   return '<article class="set-card"><div class="topic-line"><span class="tag">'+esc(s.kind)+'</span>'+(s.aiGenerated?'<span class="tag soft">KI</span>':'')+(s.date?'<small title="'+esc(formatDate(s.date))+'">'+esc(deadline)+' · '+esc(formatDate(s.date))+'</small>':'')+'</div><h3>'+esc(s.name)+'</h3><p>'+esc(s.subject)+'</p><progress max="100" value="'+pct(list)+'"></progress><div class="small">'+pct(list)+'% sicher · '+list.length+' Karten/Fragen · '+sources+' Dateien</div><div class="actions compact"><button data-set-learn="'+esc(s.id)+'">Lernen</button><button class="quiet" data-set-delete="'+esc(s.id)+'">Löschen</button></div></article>';
 }
 
+/** Router: Baut nur die gerade gewählte Seite neu auf. Keine Framework-Abhängigkeit. */
 function render(){
-  document.body.classList.toggle('dark',state.theme==='dark');
+  document.body.classList.toggle('dark',state.theme==='dark');document.body.classList.toggle('reduced-effects',!!state.reduceEffects);
   const route=location.hash.slice(1)||'dashboard';
-  document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.hash==='#'+route));
+  document.querySelectorAll('nav a').forEach(a=>{const active=a.hash==='#'+route;a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
   document.querySelector('#error-count').textContent=errors().length;
   if(session){renderQuestion();return}
   if(game){renderGame();return}
@@ -349,33 +443,69 @@ function render(){
   else if(route==='settings') settings();
   else{location.hash='dashboard';return}
   bind();
+  setupTilt();
 }
 
+/** Startseite: zeigt fällige Fragen, Prüfungstermin und echte gespeicherte Kennzahlen. */
 function dashboard(){
   const l=level(),today=new Date().toLocaleDateString('sv-SE'),active=[...state.sets].sort((a,b)=>{
     const rank=s=>!s.date?1:(s.date>=today?0:2),ra=rank(a),rb=rank(b);
     if(ra!==rb)return ra-rb;
     return ra===2?(b.date||'').localeCompare(a.date||''):(a.date||'9999').localeCompare(b.date||'9999');
   }).slice(0,4);
-  app.innerHTML=head('Dein nächster Aha-Moment.','Lerne für IHK, Klausuren und Tests – Fach für Fach und in deinem Tempo.','Level '+l.n)+
-  '<section class="hero"><div><div class="eyebrow">DEINE NÄCHSTE LERNRUNDE</div><h2>Üben, verstehen,<br>noch einmal anwenden.</h2><p>Falsche Antworten werden wiederholt. Eigene Unterlagen kannst du einem Fach und Lernset zuordnen.</p><div class="actions"><button data-start="learn">Lernen starten</button><a class="button quiet" href="#library">Unterlagen hinzufügen</a><a class="button quiet" href="#guide">Guide ansehen</a></div></div><div class="ring" style="--value:'+pct(questions())+'%"><div><strong>'+pct(questions())+'%</strong><small>sicher gelernt</small></div></div></section>'+
+  const due=errors().filter(q=>rec(q).due<=Date.now()).length;
+  const nearest=state.sets.filter(x=>x.date&&x.date>=today).sort((a,b)=>a.date.localeCompare(b.date))[0];
+  const weak=learningInsights().weaknesses[0];
+  const paused=savedRound();
+  app.innerHTML=head('Heute lernen','Dein persönlicher Überblick – ohne unnötige Ablenkung.','Level '+l.n)+
+  '<section class="today-panel tilt-card"><div class="today-copy"><span class="tag">DEIN LERNPLAN</span><h2>Bereit für deine nächste Lernrunde?</h2><p>'+due+' Wiederholungen sind fällig.'+(nearest?' Nächster Termin: '+esc(nearest.name)+' am '+esc(formatDate(nearest.date))+'.':' Noch kein bevorstehender Prüfungstermin.')+'</p><p class="small">'+(weak?'Empfehlung aus deinen bisherigen Antworten: '+esc(weak.name)+' wiederholen.':'Mit weiteren beantworteten Fragen werden Empfehlungen genauer.')+'</p><div class="actions"><button id="today-primary">'+(paused?'Weiterlernen':'Lernrunde starten')+'</button><a class="button quiet" href="#library">Lernsets verwalten</a></div></div><div class="today-progress" title="Anteil sicher gelernter Aufgaben"><div class="ring" style="--value:'+pct(questions())+'%"><div><strong>'+pct(questions())+'%</strong><small>sicher gelernt</small></div></div></div></section>'+
   stats()+insightCards()+motivationCard()+
   '<div class="two"><section class="card"><div class="section-head"><h2>Deine Fächer</h2><a href="#library">Verwalten</a></div>'+rows('subject')+'</section><section class="card"><span class="tag">LEVEL '+l.n+'</span><h2>'+l.cur+' / '+l.step+' XP bis Level '+(l.n+1)+'</h2><progress max="'+l.step+'" value="'+l.cur+'"></progress><p>Richtige Antworten, gemeisterte Aufgaben und Lernspiele geben XP.</p><div class="mini-badges"><span>🔥 '+streak()+' Tage</span><span>🧠 '+questions().filter(mastered).length+' gemeistert</span><span>🎮 '+(state.games||[]).length+' Spiele</span></div></section></div>'+
   '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Deine Klausuren & Tests</h2><a href="#library">Neues Lernset</a></div>'+(active.length?'<div class="set-grid">'+active.map(setCard).join('')+'</div>':'<div class="empty-state"><strong>Noch kein eigenes Lernset.</strong><p>Lege zum Beispiel „Netzwerktechnik Klausur 2“ oder „WiSo Test Freitag“ an.</p><a class="button" href="#library">Erstes Lernset anlegen</a></div>')+'</section>';
 }
 
+/** Zeichnet die Fach-, Themen- und Lernset-Auswahl für eine Übungsrunde. */
 function learn(route){
   const err=route==='errors';
   app.innerHTML=head(err?'Aus Fehlern wird Verständnis.':'Was möchtest du heute lernen?',err?'Hier wiederholst du Aufgaben, die noch nicht sicher sitzen.':'Wähle Fach, Thema oder Lernset. Du kannst auch alles mischen.')+
   '<section class="card"><h2>'+(err?'Deine Wiederholungsrunde':'Eine Frage nach der anderen')+'</h2><p>'+(err?errors().length+' Aufgaben sind noch in Wiederholung.':'Fällige Wiederholungen kommen zuerst. Lernkarten aus PDFs bewertest du selbst mit „Gewusst“ oder „Noch nicht“.')+'</p>'+
   '<div class="filter-grid"><label>Fach<select id="subject-select"><option value="">Alle Fächer</option>'+subjects().map(s=>'<option>'+esc(s)+'</option>').join('')+'</select></label><label>Thema<select id="topic-select"><option value="">Alle Themen</option>'+topics().map(t=>'<option>'+esc(t)+'</option>').join('')+'</select></label><label>Lernset<select id="set-select"><option value="">Alle Lernsets</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label></div>'+
-  '<div class="actions"><button data-start="'+route+'">'+(err?'Wiederholung starten':'Lernrunde starten')+'</button></div><div class="hint">Eine Runde enthält bis zu 10 Aufgaben. Falsche Antworten kommen nach einigen anderen Fragen erneut.</div></section>';
+  '<p id="matching-count" class="small" role="status" aria-live="polite"></p><div class="actions"><button data-start="'+route+'">'+(err?'Wiederholung starten':'Lernrunde starten')+'</button></div><div class="hint">Eine Runde enthält bis zu 10 Aufgaben. Falsche Antworten kommen nach einigen anderen Fragen erneut.</div></section>';
+  updateMatchingCount();
 }
 
+function filteredQuestions(route){
+  let list=route==='errors'?errors():questions();
+  const subject=document.querySelector('#subject-select')?.value||'';
+  const topic=document.querySelector('#topic-select')?.value||'';
+  const setId=document.querySelector('#set-select')?.value||'';
+  if(subject)list=list.filter(q=>q.subject===subject);
+  if(topic)list=list.filter(q=>q.topic===topic);
+  if(setId)list=list.filter(q=>q.setId===setId);
+  return list;
+}
+/** Filter beeinflussen sich gegenseitig; leere Lernrunden werden verhindert. */
+function updateMatchingCount(){
+  const route=location.hash.slice(1)||'learn',sub=document.querySelector('#subject-select'),topic=document.querySelector('#topic-select'),set=document.querySelector('#set-select');
+  if(!sub||!topic||!set)return;
+  const currentTopic=topic.value,currentSet=set.value;
+  const possible=questions().filter(q=>!sub.value||q.subject===sub.value);
+  topic.innerHTML='<option value="">Alle Themen</option>'+[...new Set(possible.map(q=>q.topic).filter(Boolean))].sort().map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+  if([...topic.options].some(o=>o.value===currentTopic))topic.value=currentTopic;
+  set.innerHTML='<option value="">Alle Lernsets</option>'+state.sets.filter(x=>!sub.value||x.subject===sub.value).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+' · '+esc(x.subject)+'</option>').join('');
+  if([...set.options].some(o=>o.value===currentSet))set.value=currentSet;
+  const n=filteredQuestions(route).length;
+  document.querySelector('#matching-count').textContent=n+' passende Aufgaben gefunden.';
+  const button=document.querySelector('[data-start="'+route+'"]');if(button)button.disabled=n===0;
+}
+/** Minimaler 3D-Effekt nur für Mausgeräte; respektiert reduzierte Bewegung. */
+function setupTilt(){if(state.reduceEffects||matchMedia('(prefers-reduced-motion: reduce)').matches||!matchMedia('(hover: hover) and (pointer: fine)').matches)return;document.querySelectorAll('.tilt-card').forEach(card=>{card.onpointermove=e=>{const box=card.getBoundingClientRect(),x=(e.clientX-box.left)/box.width-.5,y=(e.clientY-box.top)/box.height-.5;card.style.transform='perspective(1000px) rotateX('+(-y*2.3)+'deg) rotateY('+(x*2.3)+'deg)'};card.onpointerleave=()=>card.style.transform='';});}
+/** Lernset-Bibliothek: Suchen/Sortieren vor den optional geöffneten Formularen. */
 function library(){
   const subjectOptions=subjects(),topicOptions=topics();
   app.innerHTML=head('Fächer, Klausuren und Tests.','Organisiere Unterlagen wie bisher oder erstelle direkt ein KI-Lernset aus deinen vorhandenen Dokumenten.',state.sets.length+' Lernsets')+
-  '<section class="card ai-builder"><div class="section-head"><div><span class="tag">KI · DIREKT LERNEN</span><h2>Aus deinen IHK-Unterlagen ein Lernset erstellen</h2></div><div id="ai-builder-status">'+aiStatusHtml(state.aiProvider==='openai'?'openai':'ollama')+'</div></div>'+
+  '<section class="card"><div class="section-head"><h2>Deine Lernsets</h2><span class="small">'+state.sets.length+' gespeichert</span></div><div class="filter-grid"><label>Suchen<input id="library-search" type="search" placeholder="Lernset oder Fach suchen"></label><label>Fach<select id="library-subject"><option value="">Alle Fächer</option>'+subjects().map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('')+'</select></label><label>Art<select id="library-kind"><option value="">Alle Arten</option>'+[...new Set(state.sets.map(x=>x.kind))].map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('')+'</select></label><label>Sortierung<select id="library-sort"><option value="recent">Zuletzt erstellt</option><option value="name">Name A–Z</option><option value="date">Prüfungstermin</option></select></label></div><div class="actions"><button id="show-set-create">Lernset anlegen</button><button id="show-material-import" class="quiet">Unterlagen importieren</button><button id="show-ai-builder" class="quiet">Mit KI lernen</button></div><div id="library-results" class="set-grid"></div></section>'+
+  '<section id="ai-builder-section" class="card ai-builder hidden-section"><div class="section-head"><div><span class="tag">KI · DIREKT LERNEN</span><h2>Aus deinen IHK-Unterlagen ein Lernset erstellen</h2></div><div id="ai-builder-status">'+aiStatusHtml(state.aiProvider==='openai'?'openai':'ollama')+'</div></div>'+
   '<p>Wähle Fach und Thema. Die KI verwendet zuerst die bereits importierten Unterlagen und filtert den Inhalt auf dein Thema.</p>'+
   '<form id="ai-set-form" class="stack-form"><div class="filter-grid">'+
   '<label>Fach<input name="subject" list="ai-subjects" required placeholder="z. B. Datenbanken"><datalist id="ai-subjects">'+subjectOptions.map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></label>'+
@@ -383,14 +513,23 @@ function library(){
   '<label>Anzahl<select name="count"><option value="10">10 Fragen</option><option value="20">20 Fragen</option><option value="30">30 Fragen</option></select></label></div>'+
   '<label>Unterlagen eingrenzen (optional)<select name="sourceSet"><option value="">Automatisch passende Unterlagen</option>'+state.sets.filter(s=>bySet(s.id).some(q=>!q.aiGenerated)).map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label>'+
   '<div class="actions"><button type="submit">Lernset erstellen & direkt lernen</button><a class="button quiet" href="#settings">KI-Einstellungen</a></div></form>'+
-  '<p id="ai-generate-status" class="status-text"></p><div class="hint"><strong>Grundlage:</strong> Importierte PDF/TXT/MD-Inhalte werden aus deinen lokal gespeicherten Lernkarten gesammelt. KI-generierte Fragen werden nicht als neue Quelle benutzt.</div></section>'+
-  '<div class="two library-columns" style="margin-top:24px"><section class="card"><span class="tag">1 · LERNSET</span><h2>Neues Lernset anlegen</h2><p>Der bisherige manuelle Weg bleibt vollständig erhalten.</p><form id="set-form" class="stack-form"><label>Name<input name="name" required maxlength="80" placeholder="z. B. Netzwerktechnik Klausur 2"></label><label>Fach<input name="subject" required maxlength="60" placeholder="z. B. Netzwerktechnik"></label><label>Art<select name="kind"><option>Klausur</option><option>Test</option><option>IHK</option><option>Sonstiges</option></select></label><label>Termin (optional)<input name="date" type="date"></label><button type="submit">Lernset anlegen</button><p id="set-status" class="status-text"></p></form></section>'+
-  '<section class="card"><span class="tag">2 · DATEIEN</span><h2>Unterlagen hinzufügen</h2><p>PDF, TXT, Markdown oder strukturierte JSON-Fragen. Mehrere Dateien dürfen gleichzeitig gewählt werden.</p><form id="material-form" class="stack-form"><label>Lernset<select name="setId" id="material-set" required><option value="">Bitte wählen</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label><label>Dateien<input id="material-files" type="file" multiple accept=".pdf,.txt,.md,.json,application/pdf,application/json,text/plain,text/markdown" required></label><button type="submit" '+(state.sets.length?'':'disabled')+'>Dateien einlesen</button></form><p id="material-status" class="status-text">'+esc(message)+'</p><div class="hint"><strong>Wichtig:</strong> Die normale Importfunktion bleibt verfügbar. Für hochwertige themenbezogene Fragen nutzt du anschließend oben „Lernset erstellen & direkt lernen“.</div></section></div>'+
-  '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Deine Lernsets</h2><span class="small">Mehrere Fächer parallel möglich</span></div>'+(state.sets.length?'<div class="set-grid">'+state.sets.map(setCard).join('')+'</div>':'<div class="empty-state"><strong>Noch keine Lernsets.</strong><p>Lege oben dein erstes Lernset an.</p></div>')+'</section>'+
-  '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Importierte Dateien</h2><span class="small">'+state.sources.length+' gespeichert</span></div>'+(state.sources.length?'<div class="source-list">'+[...state.sources].reverse().map(s=>'<div><strong>'+esc(s.name)+'</strong><span>'+esc(setById(s.setId)?.name||s.subject)+' · '+(s.cards||0)+' Lernkarten</span></div>').join('')+'</div>':'<p class="muted">Noch keine eigenen Dateien importiert.</p>')+'</section>';
-  setTimeout(refreshAiStatus,0);
+  '<p id="ai-generate-status" class="status-text" role="status" aria-live="polite"></p><div class="hint"><strong>Grundlage:</strong> Importierte PDF/TXT/MD-Inhalte werden aus deinen lokal gespeicherten Lernkarten gesammelt. KI-generierte Fragen werden nicht als neue Quelle benutzt.</div></section>'+
+  '<div id="library-forms" class="two library-columns hidden-section" style="margin-top:24px"><section class="card"><span class="tag">1 · LERNSET</span><h2>Neues Lernset anlegen</h2><p>Der bisherige manuelle Weg bleibt vollständig erhalten.</p><form id="set-form" class="stack-form"><label>Name<input name="name" required maxlength="80" placeholder="z. B. Netzwerktechnik Klausur 2"></label><label>Fach<input name="subject" required maxlength="60" placeholder="z. B. Netzwerktechnik"></label><label>Art<select name="kind"><option>Klausur</option><option>Test</option><option>IHK</option><option>Sonstiges</option></select></label><label>Termin (optional)<input name="date" type="date"></label><button type="submit">Lernset anlegen</button><p id="set-status" class="status-text"></p></form></section>'+
+  '<section class="card"><span class="tag">2 · DATEIEN</span><h2>Unterlagen hinzufügen</h2><p>PDF, TXT, Markdown oder strukturierte JSON-Fragen. Mehrere Dateien dürfen gleichzeitig gewählt werden.</p><form id="material-form" class="stack-form"><label>Lernset<select name="setId" id="material-set" required><option value="">Bitte wählen</option>'+state.sets.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label><label>Dateien<input id="material-files" type="file" multiple accept=".pdf,.txt,.md,.json,application/pdf,application/json,text/plain,text/markdown" required></label><button type="submit" '+(state.sets.length?'':'disabled')+'>Dateien einlesen</button></form><p id="material-status" class="status-text" role="status" aria-live="polite">'+esc(message)+'</p><div class="hint"><strong>Wichtig:</strong> Die normale Importfunktion bleibt verfügbar. Für hochwertige themenbezogene Fragen nutzt du anschließend oben „Lernset erstellen & direkt lernen“.</div></section></div>'+
+
+  '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Importierte Quellen und Auszüge</h2><span class="small">'+state.sources.length+' gespeichert</span></div>'+(state.sources.length?'<div class="source-list">'+[...state.sources].reverse().map(s=>'<div><strong>'+esc(s.name)+'</strong><span>'+esc(setById(s.setId)?.name||s.subject)+' · '+(s.cards||0)+' Lernkarten · '+(s.excerpt?'Textauszug gespeichert':'Text nur in den Lernkarten')+' · Originaldatei nicht gespeichert</span></div>').join('')+'</div>':'<p class="muted">Noch keine eigenen Dateien importiert.</p>')+'</section>';
+  setTimeout(refreshAiStatus,0);updateLibraryResults();
 }
 
+function updateLibraryResults(){
+  const target=document.querySelector('#library-results');if(!target)return;
+  const search=uiFilter.search.trim().toLowerCase();
+  const list=state.sets.filter(x=>(!search||(x.name+' '+x.subject).toLowerCase().includes(search))&&(!uiFilter.subject||x.subject===uiFilter.subject)&&(!uiFilter.kind||x.kind===uiFilter.kind));
+  list.sort((a,b)=>uiFilter.sort==='name'?a.name.localeCompare(b.name):uiFilter.sort==='date'?(a.date||'9999').localeCompare(b.date||'9999'):b.createdAt-a.createdAt);
+  target.innerHTML=list.length?list.map(setCard).join(''):'<div class="empty-state"><h3>Keine passenden Lernsets</h3><p>Filter anpassen oder ein neues Lernset erstellen.</p></div>';
+  target.querySelectorAll('[data-set-learn]').forEach(b=>b.onclick=()=>{const sid=b.dataset.setLearn;if(!bySet(sid).length){announce('Das Lernset ist leer. Bitte importiere zuerst Unterlagen.');return}start('learn',{setId:sid,limit:Math.min(30,Math.max(10,bySet(sid).length))})});
+  target.querySelectorAll('[data-set-delete]').forEach(b=>b.onclick=()=>deleteSet(b.dataset.setDelete));
+}
 function gamesHome(){
   app.innerHTML=head('Spiel dich schlauer.','Kurze Lernspiele greifen auf deine vorhandenen Fragen zurück.','Bonus-XP')+
   '<div class="game-grid"><article class="card game-card"><div class="game-icon">🧠</div><span class="tag">MEMORY</span><h2>Frage & Antwort</h2><p>Finde passende Paare aus Frage und Lösung.</p><button data-game="memory">Memory starten</button></article><article class="card game-card"><div class="game-icon">🕵️</div><span class="tag">DETEKTIV</span><h2>Wissensdetektiv</h2><p>Löse drei Fälle. Jede richtige Antwort bringt einen Hinweis.</p><button data-game="detective">Fall übernehmen</button></article><article class="card game-card"><div class="game-icon">⚠️</div><span class="tag">WAS IST FALSCH?</span><h2>Fehler finden</h2><p>Eine Frage-Antwort-Zuordnung ist absichtlich falsch.</p><button data-game="wrong">Fehlerjagd starten</button></article></div>'+
@@ -404,9 +543,9 @@ function topicsView(){
 }
 
 function progress(){
-  const n=state.history.length,acc=n?Math.round(state.history.filter(x=>x.correct).length/n*100):0,l=level();
+  const n=state.history.length,acc=n?Math.round(state.history.reduce((v,x)=>v+historyScore(x),0)/n*100):0,partial=state.history.filter(x=>historyScore(x)>=.4&&historyScore(x)<.85).length,l=level();
   app.innerHTML=head('Du kommst voran.','Level, Fächer und Lernsets zeigen dir, wo du stehst.','Level '+l.n)+stats()+
-  '<div class="two"><section class="card"><h2>Fortschritt je Fach</h2>'+rows('subject')+'</section><section class="card"><h2>Dein Lernprofil</h2><div class="big-number">'+acc+'%</div><p>Richtige Antworten bei '+n+' Versuchen.</p><p>'+questions().filter(q=>rec(q).attempts).length+' von '+questions().length+' Aufgaben ausprobiert.</p><h3>Level '+l.n+'</h3><progress max="'+l.step+'" value="'+l.cur+'"></progress><p class="small">'+l.cur+' von '+l.step+' XP bis zum nächsten Level.</p></section></div>'+
+  '<div class="two"><section class="card"><h2>Fortschritt je Fach</h2>'+rows('subject')+'</section><section class="card"><h2>Dein Lernprofil</h2><div class="big-number">'+acc+'%</div><p>Durchschnittliche Antwortquote bei '+n+' Versuchen · '+partial+' teilweise richtig.</p><p>'+questions().filter(q=>rec(q).attempts).length+' von '+questions().length+' Aufgaben ausprobiert.</p><h3>Level '+l.n+'</h3><progress max="'+l.step+'" value="'+l.cur+'"></progress><p class="small">'+l.cur+' von '+l.step+' XP bis zum nächsten Level.</p></section></div>'+
   '<section class="card" style="margin-top:24px"><h2>Lernsets</h2>'+(state.sets.length?'<div class="set-grid">'+state.sets.map(setCard).join('')+'</div>':'<p class="muted">Noch keine eigenen Lernsets vorhanden.</p>')+'</section>'+
   '<section class="card" style="margin-top:24px"><h2>Fortschritt sichern</h2><div class="actions"><button id="export">Sicherung herunterladen</button><label class="file-button">Sicherung wiederherstellen<input id="restore" type="file" accept=".json,application/json"></label></div><p id="restore-status"></p></section>';
 }
@@ -440,6 +579,7 @@ function settings(){
   '<label class="provider-choice '+(state.aiProvider==='openai'?'selected':'')+'"><input type="radio" name="ai-provider" value="openai" '+(state.aiProvider==='openai'?'checked':'')+'><div><strong>🔵 OpenAI – optional</strong><p>Wird nur verwendet, wenn du es auswählst und serverseitig einen API-Key eingerichtet hast.</p><div id="openai-status">'+aiStatusHtml('openai')+'</div></div></label></div></section>'+
   '<div class="two" style="margin-top:24px"><section class="card"><span class="tag">OLLAMA STARTEN</span><h2>Wenn die lokale KI rot ist</h2><p>Öffne die Ollama-App oder führe im Terminal aus:</p><pre class="command-box">ollama serve</pre><p>Empfohlenes Modell für einen modernen Mac:</p><pre class="command-box">ollama pull qwen3.5:4b</pre><p>Prüfen:</p><pre class="command-box">ollama list</pre><button id="ai-recheck" class="quiet">Status erneut prüfen</button></section>'+
   '<section class="card"><span class="tag">OPENAI · OPTIONAL</span><h2>API-Key bleibt außerhalb des Frontends</h2><p>Erstelle im Projektordner eine Datei <strong>.env</strong> und trage dort bei Bedarf ein:</p><pre class="command-box">OPENAI_API_KEY=dein_key_hier\nOPENAI_MODEL=gpt-6-luna</pre><p class="small">Die .env-Datei wird durch .gitignore nicht zu GitHub hochgeladen. Ohne Key funktioniert die Plattform weiterhin vollständig mit Ollama.</p></section></div>';
+  app.insertAdjacentHTML('beforeend','<section class="card" style="margin-top:24px"><h2>Darstellung</h2><label class="toggle-setting"><input id="reduce-effects" type="checkbox" '+(state.reduceEffects?'checked':'')+'> Dezente 3D-Effekte ausschalten</label></section>');
   setTimeout(refreshAiStatus,0);
 }
 
@@ -450,6 +590,7 @@ function exam(){
   '<label>Umfang<select id="exam-count"><option value="10">10 Fragen</option><option value="20">20 Fragen</option><option value="30">30 Fragen</option></select></label></div>'+
   '<div class="actions"><button data-start="exam">Probeprüfung starten</button></div></section>';
 }
+/** Startet eine neue Übungs- oder Prüfungsrunde mit maximal 30 Aufgaben. */
 function start(mode,opt={}){
   let list=questions(),subject=opt.subject||document.querySelector('#subject-select')?.value||'',topic=opt.topic||document.querySelector('#topic-select')?.value||'',
     setId=opt.setId||document.querySelector('#set-select')?.value||(mode==='exam'?document.querySelector('#exam-set')?.value||'':'');
@@ -460,7 +601,8 @@ function start(mode,opt={}){
   if(mode==='exam')list=shuffle(list.filter(q=>q.type!=='selfcheck'));
   else list.sort((a,b)=>{const rank=q=>rec(q).attempts&&rec(q).due<=Date.now()?0:!rec(q).attempts?1:2;return rank(a)-rank(b)||rec(a).due-rec(b).due});
   const requested=Number(opt.limit||(mode==='exam'?document.querySelector('#exam-count')?.value:10)||10),limit=Math.max(1,Math.min(30,requested));
-  session={mode,queue:list.slice(0,limit),index:0,answered:false,results:[]};render();
+  if(!list.length){announce('Keine passenden Aufgaben. Bitte ändere die Filter oder importiere Unterlagen.');return}
+  session={mode,queue:list.slice(0,limit),index:0,answered:false,results:[]};persistRound();render();
 }
 
 function questionInput(q){
@@ -482,6 +624,7 @@ function formAnswer(form,q){
 }
 function answerPresent(v){return Array.isArray(v)?v.length>0:String(v??'').trim().length>0}
 function answerText(v){return Array.isArray(v)?v.join(', '):String(v??'')}
+/** Baut die aktuelle Frage auf und verbindet Eingabe, Fokusmodus und Pausenfunktion. */
 function renderQuestion(){
   const s=session,q=s.queue[s.index];
   if(!q){summary();return}
@@ -493,7 +636,13 @@ function renderQuestion(){
   '<div id="feedback"></div></section>';
   if(self)document.querySelector('#reveal').onclick=()=>reveal(q);
   else document.querySelector('#answer-form').onsubmit=e=>{e.preventDefault();submit(formAnswer(e.target,q))};
-  document.querySelector('#end').onclick=()=>{if(s.mode==='exam'&&s.results.length)summary(true);else{session=null;render()}};
+  const focusToggle=document.createElement('button');focusToggle.className='quiet';focusToggle.type='button';focusToggle.id='focus-toggle';focusToggle.textContent=state.focusMode?'Fokusmodus beenden':'Fokusmodus';document.querySelector('.question .actions')?.append(focusToggle);focusToggle.onclick=()=>{state.focusMode=!state.focusMode;save();document.body.classList.toggle('focus-mode',!!state.focusMode);focusToggle.textContent=state.focusMode?'Fokusmodus beenden':'Fokusmodus'};
+  document.body.classList.toggle('focus-mode',!!state.focusMode);
+  document.querySelector('#end').textContent='Pause / Beenden';
+  document.querySelector('#end').onclick=()=>{persistRound();session=null;location.hash='dashboard';render();announce('Lernrunde pausiert. Du kannst sie über Weiterlernen fortsetzen.')};
+  const form=document.querySelector('#answer-form');const key='learning-by-doing-draft-'+q.id;
+  const prev=session.drafts?.[q.id];if(form&&prev!==undefined){if(Array.isArray(prev))form.querySelectorAll('input[name=answer]').forEach(i=>i.checked=prev.includes(i.value));else if(form.elements.answer){const input=form.elements.answer;if(input instanceof RadioNodeList){[...form.querySelectorAll('input[name=answer]')].forEach(i=>i.checked=i.value===prev)}else input.value=prev}}
+  form?.addEventListener('input',()=>{session.drafts=session.drafts||{};session.drafts[q.id]=formAnswer(form,q);persistRound()});
 }
 function norm(v){return String(v??'').trim().toLowerCase().replace(/,/g,'.').replace(/\s+/g,' ')}
 function numericValue(v){
@@ -516,20 +665,22 @@ function localEvaluation(q,answer){
   const ok=correct(q,answer);
   return{rating:ok?'correct':'wrong',score:ok?1:0,feedback:q.explanation||'',modelAnswer:q.answer||''};
 }
-async function evaluateQuestion(q,answer){
+/** Bewertet KI-Fragen über den lokalen Server; sichere Auswahltypen haben lokale Ausweichbewertung. */
+async function evaluateQuestion(q,answer,signal){
   if(!q.aiGenerated)return localEvaluation(q,answer);
   try{
     return await apiJson('/api/ai/evaluate',{provider:state.aiProvider||'ollama',question:{
       type:q.type,prompt:q.prompt,answer:q.answer,correctOptions:q.correctOptions||[],aliases:q.aliases||[],explanation:q.explanation||'',steps:q.steps||[],topic:q.topic,subtopic:q.subtopic||'',points:q.points||1
-    },answer});
+    },answer},signal);
   }catch(e){
     if(['choice','multichoice','truefalse','number'].includes(q.type)){
       const fallback=localEvaluation(q,answer);fallback.feedback=(fallback.feedback?fallback.feedback+' ':'')+'Hinweis: KI-Bewertung war nicht erreichbar; diese eindeutige Aufgabe wurde lokal ausgewertet.';return fallback;
     }
-    const fallback=localEvaluation(q,answer);fallback.feedback='KI-Bewertung nicht erreichbar: '+e.message+' Vergleiche zusätzlich mit der Musterlösung.';return fallback;
+    return{rating:'unavailable',score:null,feedback:'Bewertung nicht verfügbar: '+e.message,modelAnswer:q.answer||'',unavailable:true};
   }
 }
-function gradeName(r){return r==='correct'?'Richtig':r==='partial'?'Teilweise richtig':'Falsch'}
+function gradeName(r){return r==='unavailable'?'Bewertung nicht verfügbar':r==='correct'?'Richtig':r==='partial'?'Teilweise richtig':'Falsch'}
+/** Spaced Repetition: sichere Antworten später, falsche Antworten früher wiederholen. */
 function update(q,rating,score){
   const grade=typeof rating==='boolean'?(rating?'correct':'wrong'):(rating||'wrong'),value=typeof score==='number'?score:(grade==='correct'?1:grade==='partial'?.5:0),
     r={...rec(q)};r.attempts++;r.correct+=value;r.streak=grade==='correct'?r.streak+1:0;r.last=Date.now();
@@ -544,14 +695,18 @@ function explain(q,evaluation,answer){
     '<p>Musterlösung: <strong>'+esc(solution)+'</strong></p>'+(feedback?'<p>'+esc(feedback)+'</p>':'')+
     (q.steps?.length?'<h3>Schritt für Schritt</h3><ol>'+q.steps.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol>':'')+'</div>';
 }
+/** Verarbeitet eine Antwort und speichert das Ergebnis erst nach einer zuverlässigen Bewertung. */
 async function submit(answer){
   const s=session;if(!s||s.answered||!answerPresent(answer))return;const q=s.queue[s.index];
   s.answered=true;document.querySelectorAll('#answer-form input,#answer-form textarea,#answer-form button[type=submit]').forEach(x=>x.disabled=true);
-  const feedback=document.querySelector('#feedback');
-  if(q.aiGenerated)feedback.innerHTML='<div class="hint">'+esc(providerName())+' bewertet deine Antwort …</div>';
-  const evaluation=await evaluateQuestion(q,answer),rating=evaluation.rating||'wrong',score=Number.isFinite(Number(evaluation.score))?Number(evaluation.score):(rating==='correct'?1:rating==='partial'?.5:0);
+  const feedback=document.querySelector('#feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
+  const controller=q.aiGenerated?new AbortController():null;if(controller)activeAiRequest=controller;
+  if(q.aiGenerated){feedback.innerHTML='<div class="hint">'+esc(providerName())+' bewertet deine Antwort …</div><button class="quiet" id="cancel-evaluation" type="button">Bewertung abbrechen</button>';document.querySelector('#cancel-evaluation').onclick=()=>controller.abort()}
+  const evaluation=await evaluateQuestion(q,answer,controller?.signal);if(activeAiRequest===controller)activeAiRequest=null;if(session!==s)return;
+  const rating=evaluation.rating||'wrong',score=evaluation.unavailable?null:Number.isFinite(Number(evaluation.score))?Number(evaluation.score):(rating==='correct'?1:rating==='partial'?.5:0);
+  if(evaluation.unavailable){if(s.mode==='exam'){s.results.push({q,answer,correct:false,rating:'unavailable',score:null,feedback:'Bewertung nicht verfügbar',modelAnswer:q.answer});persistRound();next();return}s.answered=false;feedback.innerHTML=explain(q,evaluation,answer)+'<div class="actions"><button id="self-correct">✓ Gewusst</button><button id="self-partial">◐ Teilweise richtig</button><button id="self-wrong">↻ Noch nicht sicher</button></div>';const decide=(r,v)=>{s.answered=true;const result={q,answer,correct:r==='correct',rating:r,score:v,feedback:evaluation.feedback,modelAnswer:q.answer};s.results.push(result);update(q,r,v);save();persistRound();feedback.innerHTML=explain(q,{...evaluation,rating:r},answer)+'<button id="next">Weiter</button>';document.querySelector('#next').onclick=next};document.querySelector('#self-correct').onclick=()=>decide('correct',1);document.querySelector('#self-partial').onclick=()=>decide('partial',.5);document.querySelector('#self-wrong').onclick=()=>decide('wrong',0);return}
   const result={q,answer,correct:rating==='correct',rating,score,feedback:evaluation.feedback||'',modelAnswer:evaluation.modelAnswer||q.answer};
-  s.results.push(result);
+  s.results.push(result);persistRound();
   if(s.mode==='exam'){next();return}
   update(q,rating,score);save();
   if(rating!=='correct'&&s.queue.length<30)s.queue.splice(Math.min(s.index+3,s.queue.length),0,q);
@@ -568,32 +723,35 @@ function selfDone(q,ok){
   if(!ok&&session.queue.length<30)session.queue.splice(Math.min(session.index+3,session.queue.length),0,q);
   document.querySelector('#feedback').innerHTML+='<div class="hint">'+(ok?'Gut. Die Karte kommt später wieder.':'Die Karte taucht in dieser Runde erneut auf.')+'</div><button id="next">Weiter</button>';document.querySelector('#next').onclick=next;
 }
-function next(){session.index++;session.answered=false;renderQuestion();window.scrollTo({top:0,behavior:'smooth'})}
+function next(){session.index++;session.answered=false;persistRound();renderQuestion();window.scrollTo({top:0,behavior:'smooth'})}
 function topicBreakdown(res){
-  const map=new Map();res.forEach(x=>{const key=x.q.topic||x.q.subject||'Allgemein',g=map.get(key)||{name:key,earned:0,possible:0};const p=x.q.points||1;g.earned+=p*(Number.isFinite(x.score)?x.score:(x.correct?1:0));g.possible+=p;map.set(key,g)});
+  const map=new Map();res.filter(x=>x.rating!=='unavailable').forEach(x=>{const key=x.q.topic||x.q.subject||'Allgemein',g=map.get(key)||{name:key,earned:0,possible:0};const p=x.q.points||1;g.earned+=p*(Number.isFinite(x.score)?x.score:(x.correct?1:0));g.possible+=p;map.set(key,g)});
   return [...map.values()].map(x=>({...x,pct:x.possible?Math.round(x.earned/x.possible*100):0})).sort((a,b)=>a.pct-b.pct);
 }
+/** Ergebnisauswertung: Punkte, Prozente und Themen mit Wissenslücken. */
 function summary(early=false){
   const s=session,res=s.results;
-  if(s.mode==='exam'){res.forEach(x=>update(x.q,x.rating||x.correct,x.score));save()}
+  if(s.mode==='exam'){res.filter(x=>x.rating!=='unavailable').forEach(x=>update(x.q,x.rating||x.correct,x.score));save()}
   const right=res.filter(x=>(Number.isFinite(x.score)?x.score:(x.correct?1:0))>=.85).length,
-    possible=s.queue.reduce((n,q)=>n+(q.points||1),0),
+    ungraded=res.filter(x=>x.rating==='unavailable').length,
+    possible=s.mode==='exam'?res.filter(x=>x.rating!=='unavailable').reduce((n,x)=>n+(x.q.points||1),0):s.queue.reduce((n,q)=>n+(q.points||1),0),
     earned=res.reduce((n,x)=>n+(Number.isFinite(x.score)?x.score:(x.correct?1:0))*(x.q.points||1),0),
     percent=possible?Math.round(earned/possible*100):0,breakdown=topicBreakdown(res),weak=breakdown.filter(x=>x.pct<70);
   app.innerHTML=head(res.length?(s.mode==='exam'?'Prüfung ausgewertet.':'Eine Runde weiter.'):'Hier ist gerade nichts zu üben.',res.length?(s.mode==='exam'?'Dein Ergebnis zeigt dir, was schon sitzt und was du wiederholen solltest.':'Nimm das Verständnis mit in deinen nächsten Versuch.'):'Wähle ein anderes Fach, Thema oder Lernset.')+
-  '<section class="card question empty"><span class="tag">'+(s.mode==='exam'?'PRÜFUNGSAUSWERTUNG':'LERNRUNDE')+'</span><div class="big-number">'+(s.mode==='exam'?percent+'%':right+' / '+res.length)+'</div><h2>'+(s.mode==='exam'?'Gesamtergebnis':'Antworten richtig')+'</h2>'+
-  (s.mode==='exam'?'<p>'+earned.toFixed(1).replace('.0','')+' von '+possible+' Punkten'+(early?' · vorzeitig beendet':'')+'</p>':'')+'<button id="finish">Zum Dashboard</button></section>'+
+  '<section class="card question empty"><span class="tag">'+(s.mode==='exam'?'PRÜFUNGSAUSWERTUNG':'LERNRUNDE')+'</span><div class="big-number">'+(s.mode==='exam'?(possible?percent+'%':'Keine Bewertung'):right+' / '+res.length)+'</div><h2>'+(s.mode==='exam'?'Gesamtergebnis':'Antworten richtig')+'</h2>'+
+  (s.mode==='exam'?'<p>'+earned.toFixed(1).replace('.0','')+' von '+possible+' bewertbaren Punkten'+(ungraded?' · '+ungraded+' Antworten nicht bewertet':'')+(early?' · vorzeitig beendet':'')+'</p>':'')+'<button id="finish">Zum Dashboard</button></section>'+
   (s.mode==='exam'?'<section class="card" style="margin-top:20px"><h2>Ergebnis nach Thema</h2>'+breakdown.map(x=>'<div class="topic-row"><div class="topic-line"><strong>'+esc(x.name)+'</strong><small>'+x.pct+'%</small></div><progress max="100" value="'+x.pct+'"></progress></div>').join('')+
     (weak.length?'<div class="hint"><strong>Diese Themen solltest du noch einmal lernen:</strong> '+weak.map(x=>esc(x.name)).join(', ')+'</div>':'<div class="hint"><strong>Stark:</strong> Kein ausgewertetes Thema liegt unter 70 %.</div>')+'</section>'+
     res.map(x=>'<section class="question" style="margin-top:20px"><h3>'+esc(x.q.prompt)+'</h3>'+explain(x,{rating:x.rating||'wrong',score:x.score,feedback:x.feedback,modelAnswer:x.modelAnswer},x.answer)+'</section>').join(''):'');
-  session=null;document.querySelector('#finish').onclick=()=>{location.hash='dashboard';render()};
+  session=null;persistRound();document.querySelector('#finish').onclick=()=>{location.hash='dashboard';render()};
 }
 
 function createSet(form){
   const d=new FormData(form),s={id:id('set'),name:String(d.get('name')||'').trim(),subject:String(d.get('subject')||'').trim(),kind:String(d.get('kind')||'Sonstiges').trim(),date:String(d.get('date')||''),createdAt:Date.now()},status=document.querySelector('#set-status');
   if(!s.name||!s.subject){if(status)status.textContent='Bitte Name und Fach ausfüllen.';return}
-  state.sets.push(s);save();message='Lernset „'+s.name+'“ wurde angelegt.';render();
+  state.sets.push(s);save();message='Lernset „'+s.name+'“ wurde angelegt. Füge jetzt passende Unterlagen hinzu.';render();document.querySelector('#library-forms')?.classList.remove('hidden-section');const picker=document.querySelector('#material-set');if(picker){picker.value=s.id;picker.focus()}announce(message);
 }
+/** Liest ausgewählte Dateien ein, erstellt Karten und speichert nur begrenzte Textauszüge. */
 async function importMaterials(form){
   const d=new FormData(form),set=setById(String(d.get('setId')||'')),files=[...document.querySelector('#material-files').files],notes=[];if(!set||!files.length)return;
   document.querySelector('#material-status').textContent='Dateien werden eingelesen …';let count=0,cards=0;
@@ -610,7 +768,7 @@ async function importMaterials(form){
     }
     state.custom.push(...added);state.sources.push({id:id('src'),name:file.name,subject:set.subject,setId:set.id,cards:added.length,excerpt:sourceExcerpt,addedAt:Date.now()});count++;cards+=added.length;
   }catch(e){notes.push(file.name+': '+e.message)}
-  save();message=count+' Datei(en) eingelesen · '+cards+' neue Karten/Fragen.'+(notes.length?' Hinweise: '+notes.join(' | '):'');render();
+  save();message=count+' Datei(en) eingelesen · '+cards+' neue Karten/Fragen.'+(notes.length?' Hinweise: '+notes.join(' | '):'');render();document.querySelector('#library-forms')?.classList.remove('hidden-section');const status=document.querySelector('#material-status');if(status&&count){const next=document.createElement('button');next.type='button';next.textContent='Jetzt mit dem Lernset lernen';next.className='quiet';next.onclick=()=>start('learn',{setId:set.id});status.after(next)}announce(message);
 }
 
 function cleanImportedText(text){
@@ -821,8 +979,9 @@ function validate(input,allowEmpty=true){
 async function importJson(e){
   const target=document.querySelector('#import-status');try{const f=e.target.files[0];if(!f)return;const added=validate(JSON.parse(await f.text()),false);state.custom.push(...added);state.sources.push({id:id('src'),name:f.name,subject:'Eigene Unterlagen',setId:'',cards:added.length,addedAt:Date.now()});save();message=added.length+' Fragen importiert.';render()}catch(err){if(target)target.textContent='Import nicht möglich: '+err.message}
 }
-function deleteSet(sid){
-  const s=setById(sid);if(!s||!confirm('Lernset „'+s.name+'“ samt importierten Fragen und Dateien löschen?'))return;
+/** Löscht ein Lernset erst nach ausdrücklicher Bestätigung, inklusive zugehöriger Lernkarten. */
+async function deleteSet(sid){
+  const s=setById(sid);if(!s||!await confirmAction('Lernset „'+s.name+'“ samt importierten Fragen und Dateien löschen?','Löschen'))return;
   const ids=new Set(state.custom.filter(q=>q.setId===sid).map(q=>q.id));state.custom=state.custom.filter(q=>q.setId!==sid);state.sources=state.sources.filter(x=>x.setId!==sid);state.sets=state.sets.filter(x=>x.id!==sid);ids.forEach(x=>delete state.records[x]);state.history=state.history.filter(x=>!ids.has(x.id));save();render();
 }
 
@@ -882,8 +1041,19 @@ function answerDetective(q,a){
 }
 function finishGame(){game=null;location.hash='games';render()}
 
+/** Registriert Klick- und Formularaktionen nach jedem Neuaufbau der Seite. */
 function bind(){
+  const searchBox=document.querySelector('#library-search');if(searchBox)searchBox.value=uiFilter.search;
+  document.querySelector('#library-search')?.addEventListener('input',e=>{uiFilter.search=e.target.value;updateLibraryResults()});
+  for(const field of ['subject','kind','sort']){const el=document.querySelector('#library-'+field);if(el){el.value=uiFilter[field];el.addEventListener('change',e=>{uiFilter[field]=e.target.value;updateLibraryResults()})}}
+  document.querySelector('#show-set-create')?.addEventListener('click',()=>{document.querySelector('#library-forms')?.classList.remove('hidden-section');document.querySelector('#set-form input[name=name]')?.focus()});
+  document.querySelector('#show-material-import')?.addEventListener('click',()=>{document.querySelector('#library-forms')?.classList.remove('hidden-section');document.querySelector('#material-set')?.focus()});
+  document.querySelector('#show-ai-builder')?.addEventListener('click',()=>{document.querySelector('#ai-builder-section')?.classList.remove('hidden-section');document.querySelector('#ai-set-form input[name=subject]')?.focus()});
+
   document.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>start(b.dataset.start));
+  document.querySelector('#today-primary')?.addEventListener('click',()=>savedRound()?resumeRound():(location.hash='learn'));
+  for(const name of ['subject','topic','set'])document.querySelector('#'+name+'-select')?.addEventListener('change',updateMatchingCount);
+  document.querySelector('#motivation-toggle')?.addEventListener('click',()=>{state.motivationCollapsed=!state.motivationCollapsed;save();render()});
   document.querySelector('#motivation-next')?.addEventListener('click',()=>{state.quoteShift=(Number(state.quoteShift)||0)+1;save();refreshMotivation();});
   document.querySelectorAll('[data-topic]').forEach(b=>b.onclick=()=>start('learn',{topic:b.dataset.topic}));
   document.querySelectorAll('[data-set-learn]').forEach(b=>b.onclick=()=>{const sid=b.dataset.setLearn;start('learn',{setId:sid,limit:Math.min(30,Math.max(10,bySet(sid).length))})});
@@ -894,6 +1064,7 @@ function bind(){
   document.querySelector('#ai-set-form')?.addEventListener('submit',e=>{e.preventDefault();generateAiSet(e.currentTarget)});
   document.querySelectorAll('input[name="ai-provider"]').forEach(r=>r.addEventListener('change',e=>{state.aiProvider=e.target.value;save();settings();bind()}));
   document.querySelector('#ai-recheck')?.addEventListener('click',refreshAiStatus);
+  document.querySelector('#reduce-effects')?.addEventListener('change',e=>{state.reduceEffects=e.target.checked;save();document.body.classList.toggle('reduced-effects',state.reduceEffects);render()});
   document.querySelector('#import')?.addEventListener('change',importJson);
   document.querySelector('#export')?.addEventListener('click',()=>download('learning-by-doing-sicherung.json',state));
   document.querySelector('#restore')?.addEventListener('change',restore);
@@ -908,7 +1079,7 @@ async function restore(e){
     if(![1,2].includes(v.version))throw Error('Unbekannte Sicherungsversion.');
     if(!v.records||typeof v.records!=='object'||Array.isArray(v.records)||!Array.isArray(v.history)||!Array.isArray(v.custom))throw Error('Die Sicherungsdatei ist unvollständig oder beschädigt.');
     if(v.version===2&&(!Array.isArray(v.sets)||!Array.isArray(v.sources)||!Array.isArray(v.games)))throw Error('Die Sicherungsdatei enthält nicht alle benötigten Lernset-Daten.');
-    if(!confirm('Aktuelle Lerndaten durch diese Sicherung ersetzen?'))return;
+    if(!await confirmAction('Aktuelle Lerndaten durch diese Sicherung ersetzen?','Wiederherstellen'))return;
     state=v.version===2?{...blank(),...v}:{...blank(),...v,version:2,sets:[],sources:[],games:[]};
     save();message='Sicherung erfolgreich wiederhergestellt.';render();
   }catch(err){
@@ -922,7 +1093,14 @@ document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{
 window.addEventListener('beforeunload',e=>{
   if(session?.mode==='exam'&&session.results.length){e.preventDefault();e.returnValue='';}
 });
-window.addEventListener('hashchange',()=>{session=null;game=null;render()});
+window.addEventListener('hashchange',()=>{activeAiRequest?.abort();activeAiRequest=null;if(session)persistRound();session=null;game=null;render();setMobileMenu(false)});
+function setMobileMenu(open){document.body.classList.toggle('menu-open',open);document.querySelector('#menu-toggle').setAttribute('aria-expanded',String(open));document.querySelector('#nav-scrim').hidden=!open;const aside=document.querySelector('#main-sidebar');if(aside)aside.inert=!open&&matchMedia('(max-width:900px)').matches;if(open)aside?.querySelector('nav a')?.focus();}
+document.querySelector('#menu-toggle')?.addEventListener('click',()=>setMobileMenu(!document.body.classList.contains('menu-open')));
+document.querySelector('#nav-scrim')?.addEventListener('click',()=>setMobileMenu(false));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('menu-open')){setMobileMenu(false);document.querySelector('#menu-toggle')?.focus()}});
+window.addEventListener('resize',()=>{if(!matchMedia('(max-width:900px)').matches)setMobileMenu(false);else if(!document.body.classList.contains('menu-open'))document.querySelector('#main-sidebar').inert=true});
+document.querySelector('#main-sidebar').inert=matchMedia('(max-width:900px)').matches;
+document.querySelector('#mobile-theme')?.addEventListener('click',()=>document.querySelector('#theme').click());
 document.querySelector('#theme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';save();render()};
 setInterval(refreshMotivation,60*1000);
 render();

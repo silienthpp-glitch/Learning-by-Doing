@@ -224,6 +224,49 @@ Am Ende erscheinen:
 
 Falsche Antworten werden weiterhin früher zur Wiederholung eingeplant.
 
+## Moderne GUI (Feature-Branch)
+
+Diese Überarbeitung nutzt weiterhin HTML, CSS und JavaScript. Es wurden **keine neuen Laufzeit-Abhängigkeiten** eingeführt.
+
+- Kompaktes Dashboard „Heute lernen“ mit fälligen Wiederholungen, nächstem Termin und vorsichtiger datenbasierter Empfehlung.
+- Lernrunden einschließlich angefangener Antworten pausieren und mit „Weiterlernen“ fortsetzen.
+- Lernsets zuerst anzeigen und nach Name, Fach und Prüfungsart suchen/filtern/sortieren; Erstellung, Import und KI-Lernen öffnen sich bei Bedarf.
+- Verknüpfte Fach-/Themen-/Lernsetfilter mit Anzahl passender Aufgaben und Schutz vor leeren Runden.
+- Mobilmenü, zugängliche Navigation, Dark Mode, Fokusmodus, reduzierte Animationen, dezente 3D-Neigung.
+- KI-Status und transparente Fehlertexte, Abbrechen laufender Browseranfragen, Selbstkontrolle bei nicht verfügbarer Freitextbewertung.
+- Begriffe getrennt: sichere Aufgaben (Lernfortschritt), anteilige Antwortquote und XP/Level.
+
+Die Daten behalten den vorhandenen Schlüssel `learning-by-doing-v2` und die Version `2`. Alte Lernsets werden **nicht automatisch gelöscht oder konvertiert**. Eine pausierte Runde wird separat unter `learning-by-doing-round-v1` gespeichert.
+
+### macOS: nur den neuen Branch in deinem bestehenden Projekt laden
+
+Vor der Aktualisierung empfohlen: **Fortschritt → Sicherung herunterladen**.
+
+Terminal im bestehenden lokalen Hauptordner öffnen (Beispiel):
+
+```sh
+cd ~/Desktop/Learning-by-Doing
+git fetch origin
+git switch --track origin/feat/modern-learning-gui
+python3 start.py --open-browser
+```
+
+Falls der Branch lokal schon existiert:
+
+```sh
+git switch feat/modern-learning-gui
+git pull origin feat/modern-learning-gui
+python3 start.py --open-browser
+```
+
+Die Datei `.env` bleibt lokal und darf nicht ins Repository gelangen. Ollama ist weiterhin Standard. OpenAI wird ausschließlich bei bewusster Auswahl verwendet.
+
+### Tests
+
+Automatischer Browser-Test: `tests/ui-smoke.cjs`, ausgeführt durch `.github/workflows/ui-browser.yml`. Er prüft Desktop/Mobil, Hell/Dunkel, Lernsets, Datenkompatibilität, Pausieren/Fortsetzen, Navigation, Layout-Overflow und reduzierte Bewegung. Screenshots werden als GitHub-Actions-Artefakte abgelegt.
+
+Die vorhandenen Python-/KI-Smoke-Tests bleiben unverändert. Ein Test mit dem tatsächlich auf deinem Mac laufenden Ollama und deinen persönlichen Lernunterlagen muss lokal erfolgen.
+
 ## Start
 
 1. Repository herunterladen oder klonen.
@@ -286,3 +329,44 @@ Unter **Fortschritt** kannst du eine JSON-Sicherung herunterladen und später wi
 - Alte PDF-Imports können als Grundlage dienen, solange die daraus erzeugten Textabschnitte/Lernkarten noch im Browser gespeichert sind.
 - OpenAI ist nur eine optionale Alternative und verursacht je nach verwendetem Modell API-Kosten.
 - Originale IHK-Prüfungsunterlagen sollten nicht ohne entsprechende Rechte öffentlich im Repository veröffentlicht werden.
+
+
+## So funktioniert dein Projekt (einfach erklärt)
+
+Deine Webseite verwendet bewusst **kein großes Framework**. Dadurch läuft sie ressourcensparend direkt über einen kleinen Python-Webserver.
+
+| Datei | Aufgabe |
+| --- | --- |
+| `start.py` | Startet den lokalen Server und stellt die KI-Schnittstellen bereit. |
+| `dist/index.html` | Grundgerüst: Navigation, Seitenleiste und Platz für die aktuelle Seite. |
+| `dist/style.css` | Farben, Abstände, Dark Mode, mobile Ansicht und dezente Effekte. |
+| `dist/app.js` | Lernsets, Import, Lernablauf, Antworten, Fortschritt, lokale Speicherung und Einstellungen. |
+| `dist/questions.js` | Mitgelieferte Beispielfragen, die auch ohne KI verfügbar sind. |
+| `.env` | **Nur auf deinem Rechner:** optionale Zugangsdaten, niemals ins öffentliche GitHub-Repository laden. |
+| `tests/ui-smoke.cjs` | Überprüft die Oberfläche im automatisierten Testbrowser. |
+
+### Die wichtigsten Funktionen in app.js
+
+- `render()` zeigt die passende Seite an, zum Beispiel Dashboard oder Lernsets.
+- `questions()` stellt Beispiel- und eigene Lernfragen zusammen.
+- `importMaterials()` liest deine Dateien ein und erstellt Lernkarten.
+- `materialContext()` stellt einen begrenzten Textkontext für die lokale KI zusammen. So werden die KI-Anfragen nicht unnötig groß.
+- `generateAiSet()` erstellt Fragen zu deinem gewählten Fach und Thema.
+- `submit()` verarbeitet die eingegebene Antwort; `evaluateQuestion()` kümmert sich um die Bewertung.
+- `update()` plant die nächste Wiederholung der Frage.
+- `save()` speichert deinen Lernstand im Browser.
+- `persistRound()` merkt sich eine pausierte Runde. Dafür werden nur Frage-IDs und kleine Ergebnisdaten gespeichert, **nicht alle Fragen doppelt**.
+- `savedRound()` stellt die Runde wieder her und unterstützt weiterhin das vorherige Speicherformat.
+
+### Warum diese Optimierungen?
+
+Die Textzusammenstellung für die KI hat ein festes Limit von **30.000 Zeichen**. Dadurch wächst eine Anfrage nicht unbegrenzt an und fordert weniger Arbeitsspeicher sowie Rechenzeit. Bei pausierten Runden werden nur die nötigen Informationen gespeichert. Die eigentlichen Lernkarten bleiben weiterhin unter dem bestehenden Browser-Speicherschlüssel `learning-by-doing-v2` liegen.
+
+**Wichtig:** Die lokale KI benötigt trotzdem Arbeitsspeicher für das von Ollama geladene Modell. Wie viel RAM Ollama verwendet, hängt hauptsächlich von Modellgröße, Kontextlänge und deinem Mac ab. Diese Frontend-Optimierungen beseitigen diesen Modell-RAM-Bedarf nicht.
+
+### Tests und Fehlerbenachrichtigungen
+
+GitHub Actions kann dir zu Zwischenständen fehlgeschlagene Jobs melden. Die Fehlermeldung gehört immer zu **einem konkreten Commit**. Spätere erfolgreiche Runs beheben nicht rückwirkend den Status eines älteren Runs.
+
+Prüfe unter GitHub → Actions den **neuesten Lauf deines Branches**. Die GUI-Tests überprüfen unter anderem das Speichern einer Lernrunde, einen vollständigen Browser-Neustart und die Kompatibilität mit älteren Browserdaten.
+
