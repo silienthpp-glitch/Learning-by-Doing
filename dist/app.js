@@ -624,7 +624,7 @@ async function submit(answer){
   if(q.aiGenerated){feedback.innerHTML='<div class="hint">'+esc(providerName())+' bewertet deine Antwort …</div><button class="quiet" id="cancel-evaluation" type="button">Bewertung abbrechen</button>';document.querySelector('#cancel-evaluation').onclick=()=>controller.abort()}
   const evaluation=await evaluateQuestion(q,answer,controller?.signal);if(activeAiRequest===controller)activeAiRequest=null;if(session!==s)return;
   const rating=evaluation.rating||'wrong',score=evaluation.unavailable?null:Number.isFinite(Number(evaluation.score))?Number(evaluation.score):(rating==='correct'?1:rating==='partial'?.5:0);
-  if(evaluation.unavailable){s.answered=false;feedback.innerHTML=explain(q,evaluation,answer)+'<div class="actions"><button id="self-correct">✓ Gewusst</button><button id="self-partial">◐ Teilweise richtig</button><button id="self-wrong">↻ Noch nicht sicher</button></div>';const decide=(r,v)=>{s.answered=true;const result={q,answer,correct:r==='correct',rating:r,score:v,feedback:evaluation.feedback,modelAnswer:q.answer};s.results.push(result);update(q,r,v);save();persistRound();feedback.innerHTML=explain(q,{...evaluation,rating:r},answer)+'<button id="next">Weiter</button>';document.querySelector('#next').onclick=next};document.querySelector('#self-correct').onclick=()=>decide('correct',1);document.querySelector('#self-partial').onclick=()=>decide('partial',.5);document.querySelector('#self-wrong').onclick=()=>decide('wrong',0);return}
+  if(evaluation.unavailable){if(s.mode==='exam'){s.results.push({q,answer,correct:false,rating:'unavailable',score:null,feedback:'Bewertung nicht verfügbar',modelAnswer:q.answer});persistRound();next();return}s.answered=false;feedback.innerHTML=explain(q,evaluation,answer)+'<div class="actions"><button id="self-correct">✓ Gewusst</button><button id="self-partial">◐ Teilweise richtig</button><button id="self-wrong">↻ Noch nicht sicher</button></div>';const decide=(r,v)=>{s.answered=true;const result={q,answer,correct:r==='correct',rating:r,score:v,feedback:evaluation.feedback,modelAnswer:q.answer};s.results.push(result);update(q,r,v);save();persistRound();feedback.innerHTML=explain(q,{...evaluation,rating:r},answer)+'<button id="next">Weiter</button>';document.querySelector('#next').onclick=next};document.querySelector('#self-correct').onclick=()=>decide('correct',1);document.querySelector('#self-partial').onclick=()=>decide('partial',.5);document.querySelector('#self-wrong').onclick=()=>decide('wrong',0);return}
   const result={q,answer,correct:rating==='correct',rating,score,feedback:evaluation.feedback||'',modelAnswer:evaluation.modelAnswer||q.answer};
   s.results.push(result);persistRound();
   if(s.mode==='exam'){next();return}
@@ -645,19 +645,20 @@ function selfDone(q,ok){
 }
 function next(){session.index++;session.answered=false;persistRound();renderQuestion();window.scrollTo({top:0,behavior:'smooth'})}
 function topicBreakdown(res){
-  const map=new Map();res.forEach(x=>{const key=x.q.topic||x.q.subject||'Allgemein',g=map.get(key)||{name:key,earned:0,possible:0};const p=x.q.points||1;g.earned+=p*(Number.isFinite(x.score)?x.score:(x.correct?1:0));g.possible+=p;map.set(key,g)});
+  const map=new Map();res.filter(x=>x.rating!=='unavailable').forEach(x=>{const key=x.q.topic||x.q.subject||'Allgemein',g=map.get(key)||{name:key,earned:0,possible:0};const p=x.q.points||1;g.earned+=p*(Number.isFinite(x.score)?x.score:(x.correct?1:0));g.possible+=p;map.set(key,g)});
   return [...map.values()].map(x=>({...x,pct:x.possible?Math.round(x.earned/x.possible*100):0})).sort((a,b)=>a.pct-b.pct);
 }
 function summary(early=false){
   const s=session,res=s.results;
-  if(s.mode==='exam'){res.forEach(x=>update(x.q,x.rating||x.correct,x.score));save()}
+  if(s.mode==='exam'){res.filter(x=>x.rating!=='unavailable').forEach(x=>update(x.q,x.rating||x.correct,x.score));save()}
   const right=res.filter(x=>(Number.isFinite(x.score)?x.score:(x.correct?1:0))>=.85).length,
-    possible=s.queue.reduce((n,q)=>n+(q.points||1),0),
+    ungraded=res.filter(x=>x.rating==='unavailable').length,
+    possible=s.mode==='exam'?res.filter(x=>x.rating!=='unavailable').reduce((n,x)=>n+(x.q.points||1),0):s.queue.reduce((n,q)=>n+(q.points||1),0),
     earned=res.reduce((n,x)=>n+(Number.isFinite(x.score)?x.score:(x.correct?1:0))*(x.q.points||1),0),
     percent=possible?Math.round(earned/possible*100):0,breakdown=topicBreakdown(res),weak=breakdown.filter(x=>x.pct<70);
   app.innerHTML=head(res.length?(s.mode==='exam'?'Prüfung ausgewertet.':'Eine Runde weiter.'):'Hier ist gerade nichts zu üben.',res.length?(s.mode==='exam'?'Dein Ergebnis zeigt dir, was schon sitzt und was du wiederholen solltest.':'Nimm das Verständnis mit in deinen nächsten Versuch.'):'Wähle ein anderes Fach, Thema oder Lernset.')+
-  '<section class="card question empty"><span class="tag">'+(s.mode==='exam'?'PRÜFUNGSAUSWERTUNG':'LERNRUNDE')+'</span><div class="big-number">'+(s.mode==='exam'?percent+'%':right+' / '+res.length)+'</div><h2>'+(s.mode==='exam'?'Gesamtergebnis':'Antworten richtig')+'</h2>'+
-  (s.mode==='exam'?'<p>'+earned.toFixed(1).replace('.0','')+' von '+possible+' Punkten'+(early?' · vorzeitig beendet':'')+'</p>':'')+'<button id="finish">Zum Dashboard</button></section>'+
+  '<section class="card question empty"><span class="tag">'+(s.mode==='exam'?'PRÜFUNGSAUSWERTUNG':'LERNRUNDE')+'</span><div class="big-number">'+(s.mode==='exam'?(possible?percent+'%':'Keine Bewertung'):right+' / '+res.length)+'</div><h2>'+(s.mode==='exam'?'Gesamtergebnis':'Antworten richtig')+'</h2>'+
+  (s.mode==='exam'?'<p>'+earned.toFixed(1).replace('.0','')+' von '+possible+' bewertbaren Punkten'+(ungraded?' · '+ungraded+' Antworten nicht bewertet':'')+(early?' · vorzeitig beendet':'')+'</p>':'')+'<button id="finish">Zum Dashboard</button></section>'+
   (s.mode==='exam'?'<section class="card" style="margin-top:20px"><h2>Ergebnis nach Thema</h2>'+breakdown.map(x=>'<div class="topic-row"><div class="topic-line"><strong>'+esc(x.name)+'</strong><small>'+x.pct+'%</small></div><progress max="100" value="'+x.pct+'"></progress></div>').join('')+
     (weak.length?'<div class="hint"><strong>Diese Themen solltest du noch einmal lernen:</strong> '+weak.map(x=>esc(x.name)).join(', ')+'</div>':'<div class="hint"><strong>Stark:</strong> Kein ausgewertetes Thema liegt unter 70 %.</div>')+'</section>'+
     res.map(x=>'<section class="question" style="margin-top:20px"><h3>'+esc(x.q.prompt)+'</h3>'+explain(x,{rating:x.rating||'wrong',score:x.score,feedback:x.feedback,modelAnswer:x.modelAnswer},x.answer)+'</section>').join(''):'');
