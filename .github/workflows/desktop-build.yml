@@ -1,0 +1,54 @@
+name: Desktop Builds (macOS, Windows, Linux)
+
+on:
+  push:
+    branches: [feat/cross-platform-desktop]
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macos-arm64
+          - os: windows-latest
+            label: windows-x64
+          - os: ubuntu-22.04
+            label: linux-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Linux desktop prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - name: Install Tauri CLI
+        run: npm install
+      - name: Create platform-specific app icons
+        run: npm run desktop:icons
+      - name: Build desktop installation package
+        run: npm run desktop:build
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: learning-by-doing-${{ matrix.label }}
+          path: |
+            src-tauri/target/release/bundle/**
+            src-tauri/target/aarch64-apple-darwin/release/bundle/**
+          if-no-files-found: error
+          retention-days: 14
