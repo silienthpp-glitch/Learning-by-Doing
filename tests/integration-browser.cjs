@@ -119,6 +119,43 @@ async function generate(page, shouldAccept) {
     assert(extracted.includes('DHCP Server'),'PDF.js muss lokalen echten PDF-Text auslesen');
     assert(extracted.includes('[[SEITE 1]]'),'Seitenbezug muss aus PDF erhalten bleiben');
     await generate(web,true);
+    // Vollständiger Lernzyklus mit absichtlich abgeschaltetem KI-Dienst:
+    // Der Nutzer erhält Selbstkontrolle statt einer erfundenen Punktzahl.
+    await web.locator('#answer-form textarea[name=answer]').fill(
+      'Vermutlich DHCP-Ausfall; DHCP-Relay und Switch-Verbindung prüfen.'
+    );
+    await web.locator('#answer-form button[type=submit]').click();
+    await web.locator('#self-partial').waitFor({timeout:10000});
+    const beforeFeedback=await web.evaluate(()=>JSON.parse(localStorage.getItem('learning-by-doing-v2')).history.length);
+    await web.locator('#self-partial').click();
+    await web.waitForFunction(prev=>JSON.parse(localStorage.getItem('learning-by-doing-v2')).history.length===prev+1,beforeFeedback);
+    const partial=await web.evaluate(()=>{
+      const st=JSON.parse(localStorage.getItem('learning-by-doing-v2'));
+      return st.history.at(-1);
+    });
+    assert(partial.grade==='partial' && partial.score===0.5,'Selbstkontrolle muss anteilige Punkte speichern');
+    await web.reload();
+    const persists=await web.evaluate(()=>{
+      const st=JSON.parse(localStorage.getItem('learning-by-doing-v2'));
+      return st.history.some(x=>x.grade==='partial') && st.custom.some(q=>q.aiGenerated);
+    });
+    assert(persists,'Lernsets und Lernfortschritt müssen nach Neustart erhalten bleiben');
+
+    // Datensicherung und Wiederherstellung mit einem neuen Nutzerprofil.
+    await web.goto(BASE+'/#progress');
+    const backup=await web.evaluate(()=>JSON.stringify(JSON.parse(localStorage.getItem('learning-by-doing-v2'))));
+    const [download]=await Promise.all([web.waitForEvent('download'),web.locator('#export').click()]);
+    assert(download.suggestedFilename().endsWith('.json'),'Backup muss als JSON heruntergeladen werden');
+    await web.evaluate(()=>localStorage.removeItem('learning-by-doing-v2'));
+    await web.reload();
+    await web.locator('#restore').setInputFiles({
+      name:'sicherung.json',mimeType:'application/json',buffer:Buffer.from(backup)
+    });
+    await web.getByRole('dialog').getByRole('button',{name:'Wiederherstellen'}).click();
+    await web.waitForFunction(()=>JSON.parse(localStorage.getItem('learning-by-doing-v2')||'{}')
+      .history?.some(x=>x.grade==='partial'));
+    console.log('PASS Web: KI-Ausfall, Selbstkontrolle, Speichern, Neustart, Backup und Restore');
+
     assert.deepEqual(webErrors,[],'Web-JavaScript darf nicht abstürzen');
     console.log('PASS Web: lokaler PDF-Loader, Import, Auswahl, KI-API, Quellenprüfung, Speichern');
 
@@ -132,6 +169,43 @@ async function generate(page, shouldAccept) {
     await prepare(reject,'Quellen-Prüfung');
     await generate(reject,false);
     console.log('PASS Web: erfundene Quelle wird abgelehnt, Daten bleiben unverändert');
+
+    // Beschädigte, leere und unbekannte Dokumente dürfen keine Daten zerstören.
+    await reject.goto(BASE+'/#library');
+    await reject.locator('#show-material-import').click();
+    await reject.locator('#material-set').selectOption({label:'Quellen-Prüfung · Netzwerktechnik'});
+    const beforeSources=await reject.evaluate(()=>JSON.parse(localStorage.getItem('learning-by-doing-v2')).sources.length);
+    for(const badFile of [
+      {name:'kaputt.pdf',mimeType:'application/pdf',buffer:Buffer.from('kein PDF')},
+      {name:'leer.txt',mimeType:'text/plain',buffer:Buffer.alloc(0)},
+      {name:'aufgabe.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        buffer:Buffer.from('unsupported-docx')}
+    ]){
+      await reject.locator('#material-files').setInputFiles(badFile);
+      await reject.locator('#material-form button[type=submit]').click();
+      // Das Einlesen ist asynchron: auf die zu dieser Datei gehörende
+      // Abschlussmeldung warten, nicht den alten Speicherstand sofort abfragen.
+      await reject.waitForFunction(name =>
+        document.querySelector('#material-status')?.textContent.includes(name),badFile.name);
+      const current=await reject.evaluate(()=>JSON.parse(localStorage.getItem('learning-by-doing-v2')).sources.length);
+      assert.equal(current,beforeSources,'Fehlerhafte Dateien dürfen keine neuen Quellen erzeugen');
+    }
+    // Mehrfachauswahl verschiedener Formate ohne externe Dienste.
+    await reject.locator('#material-files').setInputFiles([
+      {name:'zweitquelle.txt',mimeType:'text/plain',buffer:Buffer.from(raw)},
+      {name:'drittequelle.md',mimeType:'text/markdown',buffer:Buffer.from(raw)}
+    ]);
+    await reject.locator('#material-form button[type=submit]').click();
+    await reject.waitForFunction(previous=>{
+      const state=JSON.parse(localStorage.getItem('learning-by-doing-v2'));
+      return state.sources.length===previous+2;
+    },beforeSources,{timeout:15000}).catch(async err=>{
+      const label=await reject.locator('#material-status').textContent();
+      throw new Error('Mehrfachimport fehlgeschlagen: '+label+'; '+err.message);
+    });
+    const afterSources=await reject.evaluate(()=>JSON.parse(localStorage.getItem('learning-by-doing-v2')).sources.length);
+    assert.equal(afterSources,beforeSources+2,'Mehrfachimport sollte beide gültigen Unterlagen speichern');
+    console.log('PASS Web: beschädigtes PDF, leere TXT, nicht unterstütztes DOCX und Mehrfachimport');
 
     const desktop=await browser.newPage();
     const native=[];const calls=[];

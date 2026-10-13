@@ -545,7 +545,7 @@ function progress(){
 function guide(){
   const steps=[
     {n:'01',icon:'▣',title:'Fach & Lernset anlegen',text:'Öffne „Fächer & Lernsets“. Lege für eine Klausur, einen Test oder die IHK ein Lernset an. Fach, Name und optionales Prüfungsdatum helfen dir, alles sauber zu trennen.',link:'#library',action:'Lernset anlegen'},
-    {n:'02',icon:'⇧',title:'Unterlagen hinzufügen',text:'Ordne PDF-, TXT-, Markdown- oder JSON-Dateien einem Lernset zu. Aus PDF/TXT/MD erstellt die App Selbstkontroll-Lernkarten; JSON kann fertige Fragen enthalten.',link:'#library',action:'Unterlagen öffnen'},
+    {n:'02',icon:'⇧',title:'Unterlagen hinzufügen',text:'Ordne PDF-, TXT-, Markdown- oder JSON-Dateien einem Lernset zu. Textdokumente werden als Quellenabschnitte gespeichert; danach kannst du mit Ollama geprüfte Fragen erzeugen. JSON kann direkt fertige Fragen enthalten.',link:'#library',action:'Unterlagen öffnen'},
     {n:'03',icon:'▷',title:'Lernrunde starten',text:'Unter „Lernen“ kannst du nach Fach, Thema oder Lernset filtern. Eine Runde enthält bis zu 10 Aufgaben. Fällige Wiederholungen werden bevorzugt.',link:'#learn',action:'Lernen starten'},
     {n:'04',icon:'↻',title:'Fehler gezielt wiederholen',text:'Falsche oder noch unsichere Aufgaben landen im Fehlertraining. Beantworte sie erneut, bis das Wissen sicherer sitzt.',link:'#errors',action:'Fehlertraining'},
     {n:'05',icon:'♟',title:'Mit Lernspielen festigen',text:'Memory, Wissensdetektiv und „Was ist falsch?“ bringen Abwechslung hinein. Spiele geben zusätzlich XP und helfen beim Wiederholen.',link:'#games',action:'Lernspiele öffnen'},
@@ -752,11 +752,22 @@ function createSet(form){
 async function importMaterials(form){
   const d=new FormData(form),set=setById(String(d.get('setId')||''));
   const files=[...document.querySelector('#material-files').files],notes=[];
-  if(!set||!files.length)return;
+  if(!set){
+    document.querySelector('#material-status').textContent='Bitte wähle zuerst ein Lernset aus.';
+    return;
+  }
+  if(!files.length){
+    document.querySelector('#material-status').textContent='Bitte wähle zuerst eine oder mehrere Dateien aus.';
+    return;
+  }
   document.querySelector('#material-status').textContent='Dateien werden geprüft …';
   let count=0,cards=0;
   for(const file of files)try{
     if(file.size>15000000)throw Error('Datei über 15 MB; bitte vorher teilen.');
+    // Unbekannte Formate (auch DOCX) niemals als scheinbaren Klartext einlesen.
+    // Dadurch landen keine zufälligen Binärzeichen als Lernquelle in der KI.
+    if(!/\.(pdf|txt|md|json)$/i.test(file.name))
+      throw Error('Dieser Dateityp wird noch nicht unterstützt. Bitte als PDF, TXT oder Markdown exportieren.');
     const isJson=file.name.toLowerCase().endsWith('.json');
     let added=[],raw='',parts=[];
     if(isJson){
@@ -780,6 +791,10 @@ async function importMaterials(form){
   message=count+' Datei(en) importiert · '+cards+' vorhandene Lernkarten; neue Fragen erzeugst du über „Mit KI lernen“. '+
     (notes.length?'Hinweise: '+notes.join(' | '):'');
   render();document.querySelector('#library-forms')?.classList.remove('hidden-section');
+  // Nach fehlerhaften Dateien das ausgewählte Lernset behalten:
+  // So können auch Einsteiger die nächste Datei direkt erneut importieren.
+  const picker=document.querySelector('#material-set');
+  if(picker)picker.value=set.id;
   announce(message);
 }
 
@@ -951,9 +966,13 @@ function pdfLib(){
 }
 async function pdfText(file){
   const lib=await pdfLib();
-  // Eingebettete PDF-Schriftprogramme dürfen keine dynamischen JS-Ausdrücke ausführen.
-  const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false}).promise;
-  const pages=[];
+  // Die PDF-Bibliothek darf keine dynamisch erzeugten Schriftprogramme ausführen.
+  const pdf=await lib.getDocument({
+    data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false
+  }).promise;
+  try{
+    if(pdf.numPages>250)throw Error('Das PDF enthält über 250 Seiten. Teile es für den Import in kleinere Dateien.');
+    const pages=[];
   for(let i=1;i<=pdf.numPages;i++){
     const page=await pdf.getPage(i),content=await page.getTextContent();
     const lines=[],current=[];
@@ -979,10 +998,11 @@ async function pdfText(file){
     if(current.length)lines.push(current.join(' ').replace(/\s+/g,' ').trim());
     pages.push('[[SEITE '+i+']]\n'+lines.filter(Boolean).join('\n'));
   }
-  // Auch bei einem Auslesefehler müssen Decoder und PDF-Worker freigegeben werden.
-  const extracted=pages.join('\n\n');
-  await pdf.destroy();
-  return extracted;
+    return pages.join('\n\n');
+  }finally{
+    // Beim beschädigten PDF ebenso wie beim erfolgreichen Import Worker und RAM freigeben.
+    await pdf.destroy();
+  }
 }
 
 function validate(input,allowEmpty=true){

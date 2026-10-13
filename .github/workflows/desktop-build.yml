@@ -2,7 +2,7 @@ name: Desktop Builds (macOS, Windows, Linux)
 
 on:
   push:
-    branches: [feat/cross-platform-desktop, feat/source-grounded-questions]
+    branches: [feat/cross-platform-desktop, feat/source-grounded-questions, qa/full-system-e2e]
   workflow_dispatch:
 
 concurrency:
@@ -36,13 +36,31 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb
       - name: Install Tauri CLI
         run: npm install
       - name: Create platform-specific app icons
         run: npm run desktop:icons
       - name: Build desktop installation package
         run: npm run desktop:build
+      - name: Linux client startup smoke test (virtual display)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          # Exit code 124 means the application stayed open for the full timeout.
+          set +e
+          timeout 12s xvfb-run -a src-tauri/target/release/learning-by-doing >/tmp/learning-desktop.log 2>&1
+          code=$?
+          set -e
+          if [ "$code" -ne 124 ]; then
+            echo "Linux-Client wurde unerwartet beendet (Exitcode $code):"
+            cat /tmp/learning-desktop.log
+            exit 1
+          fi
+          echo "Linux-Desktop-App erfolgreich gestartet und 12 Sekunden stabil geblieben."
+      - name: Verify native Rust unit tests
+        if: runner.os == 'Linux'
+        run: cargo test --manifest-path src-tauri/Cargo.toml
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:

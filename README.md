@@ -4,6 +4,10 @@
 
 Die eingebaute Beispielsammlung enthält selbst erstellte Aufgaben zur FiSi-/IHK-Vorbereitung. Es sind **keine offiziellen IHK-Prüfungsaufgaben**.
 
+## Installation für Einsteiger
+
+Eine bebilderbare Schritt-für-Schritt-Anleitung für macOS, Windows und Linux findest du unter **[INSTALLATION.md](INSTALLATION.md)**. Du kannst vorhandene Lernsets ohne Ollama üben; nur neue KI-Fragen und die KI-Bewertung benötigen ein lokales Modell oder optional OpenAI.
+
 ## Mehrere Fächer, Klausuren und Tests
 
 Du kannst jetzt parallel für unterschiedliche Fächer lernen. Beispiele:
@@ -26,11 +30,11 @@ Unter **Fächer & Lernsets** kannst du mehrere Dateien einem Lernset zuordnen:
 
 ### PDF, TXT und Markdown
 
-Aus Textunterlagen erstellt die App automatisch Lernkarten. Du beantwortest eine Frage zunächst selbst, deckst danach den Originalinhalt auf und wählst **Gewusst** oder **Noch nicht sicher**.
+PDF-, TXT- und Markdown-Unterlagen werden zunächst als durchsuchbare Textabschnitte mit Quellenbezug gespeichert. Anschließend kannst du unter **Mit KI lernen** passende Fragen erzeugen und prüfen lassen. Ohne verfügbare KI kannst du vorhandene Beispielfragen sowie manuell/als JSON importierte Fragen weiterhin lernen.
 
 Eine rein lokale Webseite ohne KI kann nicht zuverlässig entscheiden, ob zwei frei formulierte Antworten inhaltlich gleichbedeutend sind. Deshalb vermeidet die App bei solchen Karten absichtlich eine scheinbar genaue automatische Bewertung.
 
-Für PDFs wird PDF.js beim ersten PDF-Import aus einem CDN geladen. Dafür ist beim ersten PDF-Import eine Internetverbindung nötig. Die ausgewählte PDF-Datei wird dabei nicht zu einem Server hochgeladen, sondern im Browser gelesen. TXT, Markdown, JSON und das normale Lernen funktionieren weiterhin lokal.
+PDF.js wird bei der Desktop-Installation mitgeliefert. Bei der Webversion muss es einmalig mit `npm install` und `npm run prepare:assets` lokal vorbereitet werden. Die eigentliche PDF-Auswertung erfolgt danach ohne Internet. PDFs mit ausschließlich eingescannten Bildern müssen vorher lokal per OCR durchsuchbar gemacht werden.
 
 ### JSON-Fragen
 
@@ -56,7 +60,7 @@ Strukturierte Fragen können automatisch ausgewertet werden. Beispiel:
 
 Unterstützte Typen:
 
-- `choice` – Multiple Choice
+- `choice` – genau eine richtige Auswahl
 - `number` – eindeutige Zahl
 - `text` – exakte Textantwort oder Alias
 - `selfcheck` – Selbstkontroll-Lernkarte

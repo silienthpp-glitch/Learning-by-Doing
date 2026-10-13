@@ -11,6 +11,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import math
+import logging
 import re
 import threading
 import urllib.error
@@ -452,14 +454,21 @@ score muss zwischen 0 und 1 liegen. correct >= 0.85, partial 0.4 bis 0.84, wrong
         + answer_text
     )
     result = run_ai(provider, system, user)
-    rating = str(result.get("rating") or "wrong").lower()
+    # Ungültige KI-Bewertungen werden NICHT als sicher falsch gespeichert.
+    # Das Frontend bietet bei einem 502-Fehler stattdessen Selbstkontrolle an.
+    rating = str(result.get("rating") or "").strip().lower()
     if rating not in ("correct", "partial", "wrong"):
-        rating = "wrong"
+        raise ApiError("Die KI-Bewertung war nicht eindeutig. Bitte nutze die Selbstkontrolle.", 502)
     try:
-        score = float(result.get("score", 0))
-    except (TypeError, ValueError):
-        score = 1.0 if rating == "correct" else 0.5 if rating == "partial" else 0.0
-    score = min(1.0, max(0.0, score))
+        score = float(result["score"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ApiError("Die KI-Bewertung enthielt keine gültige Punktzahl.", 502) from exc
+    if not math.isfinite(score) or not 0 <= score <= 1:
+        raise ApiError("Die KI-Bewertung enthielt eine ungültige Punktzahl.", 502)
+    if (rating == "correct" and score < 0.85) or (
+        rating == "partial" and not 0.4 <= score < 0.85
+    ) or (rating == "wrong" and score >= 0.4):
+        raise ApiError("Die KI-Bewertung ist widersprüchlich. Bitte nutze die Selbstkontrolle.", 502)
     result["rating"] = rating
     result["score"] = score
     result["feedback"] = str(result.get("feedback") or "").strip()
@@ -520,8 +529,10 @@ class LearningHandler(SimpleHTTPRequestHandler):
             raise ApiError("API-Endpunkt nicht gefunden.", 404)
         except ApiError as exc:
             self.send_json(exc.status, {"error": str(exc)})
-        except Exception as exc:
-            self.send_json(500, {"error": f"Unerwarteter Serverfehler: {exc}"})
+        except Exception:
+            # Vollständige Fehlerdetails ausschließlich in der Serverkonsole.
+            logging.exception("Unerwarteter Fehler bei %s", path)
+            self.send_json(500, {"error": "Der Vorgang konnte nicht abgeschlossen werden. Bitte versuche es erneut."})
 
 
 def main() -> None:
