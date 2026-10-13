@@ -935,10 +935,14 @@ function pdfLib(){
   pdfPromise=load('vendor/pdf.min.js').then(()=>{
     window.pdfjsLib.GlobalWorkerOptions.workerSrc='vendor/pdf.worker.min.js';
     return window.pdfjsLib;
-  }).catch(()=>load('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js').then(()=>{
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    return window.pdfjsLib;
-  })).catch(()=>{
+  }).catch(error=>{
+    // Ein installierter Desktop-Client lädt bewusst keine fremden Skripte nach.
+    if(window.__TAURI__)throw error;
+    return load('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js').then(()=>{
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      return window.pdfjsLib;
+    });
+  }).catch(()=>{
     pdfPromise=null;
     throw Error('PDF.js ist nicht lokal vorbereitet. Im Projektordner einmal npm install und npm run prepare:assets ausführen.');
   });
