@@ -946,7 +946,8 @@ function pdfLib(){
 }
 async function pdfText(file){
   const lib=await pdfLib();
-  const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  // Eingebettete PDF-Schriftprogramme dürfen keine dynamischen JS-Ausdrücke ausführen.
+  const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false}).promise;
   const pages=[];
   for(let i=1;i<=pdf.numPages;i++){
     const page=await pdf.getPage(i),content=await page.getTextContent();
@@ -973,7 +974,7 @@ async function pdfText(file){
     if(current.length)lines.push(current.join(' ').replace(/\s+/g,' ').trim());
     pages.push('[[SEITE '+i+']]\n'+lines.filter(Boolean).join('\n'));
   }
-  // PDF-Speicher nach dem Import freigeben – bei größeren Unterlagen wichtig.
+  // Auch bei einem Auslesefehler müssen Decoder und PDF-Worker freigegeben werden.
   const extracted=pages.join('\n\n');
   await pdf.destroy();
   return extracted;
