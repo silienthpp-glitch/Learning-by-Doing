@@ -4,7 +4,7 @@ Diese Tests sind wiederholbar, offline und dürfen niemals API-Gebühren auslös
 """
 import importlib.util
 import json
-import math
+import http.client
 import threading
 import unittest
 import urllib.error
@@ -90,9 +90,22 @@ class HttpFailures(unittest.TestCase):
         self.assertEqual(error.exception.code, 400)
 
     def test_oversized_request_http_400(self):
-        with self.assertRaises(urllib.error.HTTPError) as error:
-            self.post(b"x" * (2_000_001))
-        self.assertEqual(error.exception.code, 400)
+        # Nur den zu großen Content-Length-Wert senden. Beim Senden des ganzen
+        # Bodys darf der Testclient sonst mit BrokenPipe abbrechen, weil der
+        # Server die Anfrage absichtlich bereits an den Headers ablehnt.
+        from urllib.parse import urlsplit
+        url = urlsplit(self.base)
+        conn = http.client.HTTPConnection(url.hostname, url.port, timeout=5)
+        try:
+            conn.request("POST", "/api/ai/generate", body=b"{}", headers={
+                "Content-Type": "application/json",
+                "Content-Length": str(2_000_001)
+            })
+            response = conn.getresponse()
+            self.assertEqual(response.status, 400)
+            self.assertIn("Ungültige Anfrage", json.loads(response.read())["error"])
+        finally:
+            conn.close()
 
     def test_unknown_api_http_404(self):
         with self.assertRaises(urllib.error.HTTPError) as error:
