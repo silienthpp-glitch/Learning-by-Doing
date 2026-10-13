@@ -286,6 +286,35 @@ def clipped_context(value: Any) -> str:
     return text
 
 
+
+def review_generated_questions(provider: str, context: str, questions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Zweite KI-Prüfung: unbelegte oder inkonsistente Kandidaten verwerfen.
+
+    Eine einzige Batch-Anfrage prüft höchstens acht Kandidaten. Wenn die
+    Zweitprüfung fehlschlägt, werden keine ungeprüften Fragen zurückgegeben.
+    Der zusätzliche Textbeleg-Abgleich im Browser bleibt unabhängig davon aktiv.
+    """
+    candidates = questions[:8]
+    review_system = """Du bist ein strenger Prüfer für IHK-Lernfragen.
+Du erhältst Originalabschnitte und daraus generierte Fragen.
+Nutze ausschließlich die Originalabschnitte; jedes Zitat muss tatsächlich existieren.
+Akzeptiere eine Frage NUR, wenn die Musterlösung fachlich zum Kontext passt,
+alle für die Antwort nötigen Angaben vorhanden sind und die Formulierung eindeutig ist.
+Lehne unbelegte, irreführende, triviale und doppelte Fragen ab.
+Antworte NUR mit JSON: {"acceptedIndices":[0,2],"reason":"kurze Begründung"}.
+Die Indizes sind nullbasiert. Im Zweifel ablehnen."""
+    review_user = (
+        "Originalabschnitte:\n" + context + "\n\nKandidaten:\n"
+        + json.dumps(candidates, ensure_ascii=False)
+    )
+    result = run_ai(provider, review_system, review_user)
+    indexes = result.get("acceptedIndices")
+    if not isinstance(indexes, list):
+        raise ApiError("Qualitätskontrolle lieferte keine gültige Freigabeliste.", 502)
+    approved = {i for i in indexes if type(i) is int and 0 <= i < len(candidates)}
+    return [question for i, question in enumerate(candidates) if i in approved]
+
+
 def generate_questions(payload: dict[str, Any]) -> dict[str, Any]:
     provider = str(payload.get("provider") or "ollama")
     subject = str(payload.get("subject") or "").strip()
@@ -369,7 +398,10 @@ Lernunterlagen:
     questions = result.get("questions")
     if not isinstance(questions, list) or not questions:
         raise ApiError("Die KI konnte aus diesen Unterlagen keine passenden Fragen erzeugen.", 502)
-    result["questions"] = questions[:count]
+    checked = review_generated_questions(provider, context, questions[:count])
+    if not checked:
+        raise ApiError("Keine Frage hat die zweite fachliche Qualitätskontrolle bestanden.", 502)
+    result["questions"] = checked
     return result
 
 
