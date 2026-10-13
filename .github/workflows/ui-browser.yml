@@ -1,7 +1,7 @@
 name: Browser UI tests
 on:
   push:
-    branches: [feat/modern-learning-gui]
+    branches: [feat/modern-learning-gui, feat/source-grounded-questions]
   workflow_dispatch:
 
 concurrency:
