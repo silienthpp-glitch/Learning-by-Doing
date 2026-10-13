@@ -47,7 +47,7 @@ load_env(BASE / ".env")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:4b").strip() or "qwen3.5:4b"
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna").strip() or "gpt-6-luna"
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip() or "gpt-4.1-mini"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 AI_TIMEOUT = max(30, int(os.getenv("AI_TIMEOUT", "180") or "180"))
 MAX_CONTEXT_CHARS = 32000
