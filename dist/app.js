@@ -757,6 +757,10 @@ async function importMaterials(form){
   let count=0,cards=0;
   for(const file of files)try{
     if(file.size>15000000)throw Error('Datei über 15 MB; bitte vorher teilen.');
+    // Unbekannte Formate (auch DOCX) niemals als scheinbaren Klartext einlesen.
+    // Dadurch landen keine zufälligen Binärzeichen als Lernquelle in der KI.
+    if(!/\.(pdf|txt|md|json)$/i.test(file.name))
+      throw Error('Dieser Dateityp wird noch nicht unterstützt. Bitte als PDF, TXT oder Markdown exportieren.');
     const isJson=file.name.toLowerCase().endsWith('.json');
     let added=[],raw='',parts=[];
     if(isJson){
@@ -951,9 +955,13 @@ function pdfLib(){
 }
 async function pdfText(file){
   const lib=await pdfLib();
-  // Eingebettete PDF-Schriftprogramme dürfen keine dynamischen JS-Ausdrücke ausführen.
-  const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false}).promise;
-  const pages=[];
+  // Die PDF-Bibliothek darf keine dynamisch erzeugten Schriftprogramme ausführen.
+  const pdf=await lib.getDocument({
+    data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false
+  }).promise;
+  try{
+    if(pdf.numPages>250)throw Error('Das PDF enthält über 250 Seiten. Teile es für den Import in kleinere Dateien.');
+    const pages=[];
   for(let i=1;i<=pdf.numPages;i++){
     const page=await pdf.getPage(i),content=await page.getTextContent();
     const lines=[],current=[];
@@ -979,10 +987,11 @@ async function pdfText(file){
     if(current.length)lines.push(current.join(' ').replace(/\s+/g,' ').trim());
     pages.push('[[SEITE '+i+']]\n'+lines.filter(Boolean).join('\n'));
   }
-  // Auch bei einem Auslesefehler müssen Decoder und PDF-Worker freigegeben werden.
-  const extracted=pages.join('\n\n');
-  await pdf.destroy();
-  return extracted;
+    return pages.join('\n\n');
+  }finally{
+    // Beim beschädigten PDF ebenso wie beim erfolgreichen Import Worker und RAM freigeben.
+    await pdf.destroy();
+  }
 }
 
 function validate(input,allowEmpty=true){
