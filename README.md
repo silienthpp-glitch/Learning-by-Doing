@@ -370,3 +370,16 @@ GitHub Actions kann dir zu Zwischenständen fehlgeschlagene Jobs melden. Die Feh
 
 Prüfe unter GitHub → Actions den **neuesten Lauf deines Branches**. Die GUI-Tests überprüfen unter anderem das Speichern einer Lernrunde, einen vollständigen Browser-Neustart und die Kompatibilität mit älteren Browserdaten.
 
+
+## Offline-PDF-Import für Web und Desktop
+
+Die Web- und Desktop-Version verwenden dieselbe lokal gebündelte PDF.js-Bibliothek. Zur **einmaligen Vorbereitung im Projektordner**:
+
+```bash
+npm install
+npm run prepare:assets
+```
+
+Anschließend läuft auch `python3 start.py --open-browser` beim PDF-Import ohne CDN-Verbindung. In der installierten Tauri-App liegen die PDF.js-Dateien automatisch im Programm. **Ollama bleibt die Standard-KI**, OpenAI wird nicht automatisch verwendet. Scans ohne Textebene müssen vorher per lokalem OCR-Hilfsprogramm vorbereitet werden (siehe `DOCUMENT_PIPELINE.md`).
+
+Die Tests `tests/integration-browser.cjs` und `tests/test_api_contract.py` decken zusätzlich den Web-API-Vertrag, KI-Ausfälle, Quellenablehnung, importierte Quellen und eine simulierte Tauri-Brücke ab. Eine simulierte Brücke ersetzt keine Prüfung des tatsächlichen installierten Tauri-Fensters.
