@@ -308,7 +308,7 @@ def generate_questions(payload: dict[str, Any]) -> dict[str, Any]:
 
     system = """Du bist ein präziser IHK-Lerntrainer für Fachinformatiker/in Systemintegration.
 Erstelle ausschließlich fachlich passende Lernfragen zum angeforderten Thema.
-Die bereitgestellten Lernunterlagen sind die wichtigste Wissensquelle. Vermische keine fremden Themen.
+Die bereitgestellten Lernunterlagen sind die EINZIGE Wissensquelle. Vermische keine fremden Themen. Jede Frage muss durch ein Zitat im angegebenen ABSCHNITT wörtlich belegt sein. Wenn keine eindeutige Grundlage existiert, erstelle KEINE Frage.
 Wenn ein Textabschnitt offensichtlich Kopfzeile, Seitenzahl, organisatorischer Hinweis oder fachfremd ist, ignoriere ihn.
 Formuliere auf Ausbildungsniveau, praxisnah und verständlich.
 
@@ -341,7 +341,11 @@ Gib NUR ein JSON-Objekt zurück, ohne Markdown:
       "aliases": [],
       "explanation": "...",
       "steps": [],
-      "points": 1
+      "points": 1,
+      "chunkId": "ID eines ABSCHNITT aus dem Kontext",
+      "evidenceQuote": "wörtliches Zitat aus genau diesem Abschnitt (mindestens 22 Zeichen)",
+      "difficulty": "leicht|mittel|schwer",
+      "learningObjective": "konkretes Lernziel"
     }
   ]
 }"""
@@ -354,7 +358,7 @@ WICHTIG:
 1. Nutze nur Inhalte, die zum Thema "{topic}" passen.
 2. Bevorzuge Aussagen aus den Unterlagen.
 3. Wenn Unterlagen mehrere Themen enthalten, filtere streng auf "{topic}".
-4. Erzeuge bis zu {count} hochwertige Fragen; Qualität ist wichtiger als künstliches Auffüllen.
+4. Erzeuge bis zu {count} hochwertige Fragen; Qualität ist wichtiger als künstliches Auffüllen.\n5. Nutze nur ABSCHNITT-IDs aus den Unterlagen. Kopiere evidenceQuote wörtlich. Eine erfundene ID oder ein erfundenes Zitat führt zur Ablehnung.
 
 Lernunterlagen:
 --- BEGINN UNTERLAGEN ---
