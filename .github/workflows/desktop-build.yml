@@ -2,7 +2,7 @@ name: Desktop Builds (macOS, Windows, Linux)
 
 on:
   push:
-    branches: [feat/cross-platform-desktop]
+    branches: [feat/cross-platform-desktop, feat/source-grounded-questions]
   workflow_dispatch:
 
 concurrency:
