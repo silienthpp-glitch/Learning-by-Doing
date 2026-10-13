@@ -107,3 +107,15 @@ Die stabile Hauptversion liegt derzeit auf `main`. Neue Funktionen werden vor de
 Deine Dokumente und Lernstände bleiben normalerweise auf deinem Gerät. Eine externe KI wird nur nach bewusster Auswahl verwendet. Lege API-Keys ausschließlich lokal in `.env` ab und niemals im Chat oder auf GitHub. Exportierte JSON-Sicherungen enthalten möglicherweise persönliche Lerninhalte und sollten entsprechend geschützt werden.
 
 **Der aktuelle Stand ist ein Test-Build.** Ein erfolgreicher GitHub-Build ersetzt keine manuelle Prüfung auf dem Zielrechner, insbesondere für Gatekeeper, Windows SmartScreen, Linux-WebKit und Ollama.
+
+## 9. Optionaler Praxistest mit deinem eigenen Ollama
+
+Wenn Ollama, das Modell und die Webversion auf deinem Rechner laufen, kannst du die komplette **echte KI-Verbindung** mit unkritischen Beispieldaten prüfen:
+
+```sh
+python3 scripts/test_real_ollama.py
+```
+
+Dieser Test erstellt eine synthetische DHCP-Frage, fordert die zweite fachliche Qualitätskontrolle an und bewertet anschließend eine Beispielantwort. Er verwendet ausdrücklich **Ollama**, niemals OpenAI, und keine persönlichen Prüfungsunterlagen. Er dauert je nach Modell und Rechner einige Minuten.
+
+Ein erfolgreiches Ergebnis belegt den lokalen KI-Transport und die grundlegende Ausgabeform, aber nicht die fachliche Korrektheit jeder späteren Prüfungsfrage. Ein fehlgeschlagener Test zeigt dir die konkrete Fehlermeldung; diese kannst du bei Bedarf zur Fehlersuche weitergeben, **ohne** API-Schlüssel.
