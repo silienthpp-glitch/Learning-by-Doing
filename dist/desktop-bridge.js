@@ -11,9 +11,18 @@
     });
     if (!signal) return invoke;
     return new Promise((resolve, reject) => {
-      const stop = () => reject(new DOMException('Abgebrochen', 'AbortError'));
+      let finished = false;
+      const finish = (callback, value) => {
+        if (finished) return;
+        finished = true;
+        signal.removeEventListener('abort', stop);
+        callback(value);
+      };
+      const stop = () => finish(reject, new DOMException('Abgebrochen', 'AbortError'));
       signal.addEventListener('abort', stop, { once: true });
-      invoke.then(resolve, reject).finally(() => signal.removeEventListener('abort', stop));
+      // Kein ungenutztes .finally()-Promise: das erzeugte vorher potenziell
+      // eine unbehandelte Ablehnung, wenn der native KI-Aufruf fehlschlug.
+      invoke.then(value => finish(resolve, value), error => finish(reject, error));
     });
   };
 })();
