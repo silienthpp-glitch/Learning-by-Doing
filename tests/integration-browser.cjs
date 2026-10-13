@@ -183,6 +183,10 @@ async function generate(page, shouldAccept) {
     ]){
       await reject.locator('#material-files').setInputFiles(badFile);
       await reject.locator('#material-form button[type=submit]').click();
+      // Das Einlesen ist asynchron: auf die zu dieser Datei gehörende
+      // Abschlussmeldung warten, nicht den alten Speicherstand sofort abfragen.
+      await reject.waitForFunction(name =>
+        document.querySelector('#material-status')?.textContent.includes(name),badFile.name);
       const current=await reject.evaluate(()=>JSON.parse(localStorage.getItem('learning-by-doing-v2')).sources.length);
       assert.equal(current,beforeSources,'Fehlerhafte Dateien dürfen keine neuen Quellen erzeugen');
     }
@@ -192,6 +196,13 @@ async function generate(page, shouldAccept) {
       {name:'drittequelle.md',mimeType:'text/markdown',buffer:Buffer.from(raw)}
     ]);
     await reject.locator('#material-form button[type=submit]').click();
+    await reject.waitForFunction(previous=>{
+      const state=JSON.parse(localStorage.getItem('learning-by-doing-v2'));
+      return state.sources.length===previous+2;
+    },beforeSources,{timeout:15000}).catch(async err=>{
+      const label=await reject.locator('#material-status').textContent();
+      throw new Error('Mehrfachimport fehlgeschlagen: '+label+'; '+err.message);
+    });
     const afterSources=await reject.evaluate(()=>JSON.parse(localStorage.getItem('learning-by-doing-v2')).sources.length);
     assert.equal(afterSources,beforeSources+2,'Mehrfachimport sollte beide gültigen Unterlagen speichern');
     console.log('PASS Web: beschädigtes PDF, leere TXT, nicht unterstütztes DOCX und Mehrfachimport');
