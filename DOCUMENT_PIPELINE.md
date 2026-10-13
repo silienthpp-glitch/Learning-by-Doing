@@ -66,3 +66,16 @@ python3 start.py --open-browser
 Bei existierendem lokalem Branch stattdessen `git switch feat/source-grounded-questions` und `git pull origin feat/source-grounded-questions` verwenden.
 
 Für die Desktop-Version gelten weiterhin die Tauri-Startbefehle aus `DESKTOP.md`. Vorhandene `.env`-Dateien mit API-Schlüsseln niemals hochladen.
+
+## Offline OCR für gescannte PDFs (Mac M4)
+
+Für Scan-PDFs kann das neue Hilfsprogramm `scripts/ocr_local.py` lokal und ohne Cloud genutzt werden. Voraussetzung ist eine installierte OCRmyPDF-/Tesseract-Umgebung.
+
+```bash
+brew install ocrmypdf
+python3 scripts/ocr_local.py "/Pfad/zur/Pruefung.pdf"
+```
+
+Es wird eine neue Datei mit Endung `.durchsuchbar.pdf` erzeugt. Das Original wird nicht überschrieben. Die OCR verwendet höchstens zwei Arbeitsprozesse (`--jobs 2`), um CPU- und RAM-Last zu begrenzen. Anschließend wird **nur die neue PDF** in der Lernplattform importiert.
+
+**Noch offen:** Eine automatisch startende OCR direkt im Web-/Tauri-Dateiimport ist nicht implementiert; dort wird bei fehlender Textebene verständlich abgebrochen. OCR-Ergebnisse müssen bei Netzwerkskizzen, Tabellen und kleinen Scan-Schriften kontrolliert werden.
