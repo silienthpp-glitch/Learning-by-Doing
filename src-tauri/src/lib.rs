@@ -118,7 +118,7 @@ async fn ai_request(app:tauri::AppHandle,endpoint:String,payload:Option<Value>)-
       if subject.is_empty() || topic.is_empty() || context.len()<80{
         return Err("Bitte Fach, Thema und passende Unterlagen auswählen.".into());
       }
-      let n=data["count"].as_u64().unwrap_or(10).clamp(1,30);
+      let n=data["count"].as_u64().unwrap_or(8).clamp(1,8);
       let user=format!("Fach: {subject}\nThema: {topic}\nAnzahl: {n}\nUnterlagen:\n{context}");
       let provider=data["provider"].as_str().unwrap_or("ollama");
       let mut result=ask(&app,provider,GENERATE,&user).await?;
