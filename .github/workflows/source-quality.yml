@@ -19,4 +19,4 @@ jobs:
       - name: Document quality regression
         run: node tests/document-quality.cjs
       - name: Simulated semantic review
-        run: python3 -m unittest discover -s tests -p 'test_review.py'
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
