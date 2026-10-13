@@ -55,10 +55,11 @@
     return items.map(c=>{
       const words=tokens(c.heading+' '+c.text);
       let overlap=0;for(const word of t)if(words.has(word))overlap++;
-      const score=overlap*3+(normalize(c.heading).includes(query)?5:0)+
+      const matchedHeading=Boolean(query)&&normalize(c.heading).includes(query);
+      const score=overlap*3+(matchedHeading?5:0)+
         (/\b(?:berechn|erläuter|beschreib|erklär|vergleich|begründe|unterscheid|fehler|vorteil|nachteil|protokoll)\w*/i.test(c.text)?1:0);
-      return {...c,score};
-    }).filter(c=>c.score>0&&!junk(c.text)).sort((a,b)=>b.score-a.score).slice(0,limit);
+      return {...c,score,topicMatch:overlap>0||matchedHeading};
+    }).filter(c=>c.topicMatch&&!junk(c.text)).sort((a,b)=>b.score-a.score).slice(0,limit);
   }
   function similar(a,b) {
     const x=tokens(a),y=tokens(b);if(!x.size||!y.size)return false;
