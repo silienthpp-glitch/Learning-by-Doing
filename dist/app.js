@@ -923,18 +923,24 @@ let pdfPromise;
 function pdfLib(){
   if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
   if(pdfPromise)return pdfPromise;
-  pdfPromise=new Promise((resolve,reject)=>{
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    s.onload=()=>{
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      resolve(window.pdfjsLib);
-    };
-    s.onerror=()=>{
-      pdfPromise=null;
-      reject(Error('PDF-Modul konnte nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.'));
-    };
-    document.head.appendChild(s);
+  // PDF.js wird für Offline-Betrieb lokal mit der App ausgeliefert.
+  // Nur ältere Webinstallationen ohne vorbereitete Dateien nutzen das CDN als Fallback.
+  const load=(url)=>new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src=url;
+    script.onload=()=>window.pdfjsLib?resolve():reject(Error('PDF-Modul unvollständig.'));
+    script.onerror=()=>reject(Error('PDF-Modul nicht verfügbar.'));
+    document.head.appendChild(script);
+  });
+  pdfPromise=load('vendor/pdf.min.js').then(()=>{
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc='vendor/pdf.worker.min.js';
+    return window.pdfjsLib;
+  }).catch(()=>load('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js').then(()=>{
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    return window.pdfjsLib;
+  })).catch(()=>{
+    pdfPromise=null;
+    throw Error('PDF.js ist nicht lokal vorbereitet. Im Projektordner einmal npm install und npm run prepare:assets ausführen.');
   });
   return pdfPromise;
 }
@@ -967,7 +973,10 @@ async function pdfText(file){
     if(current.length)lines.push(current.join(' ').replace(/\s+/g,' ').trim());
     pages.push('[[SEITE '+i+']]\n'+lines.filter(Boolean).join('\n'));
   }
-  return pages.join('\n\n');
+  // PDF-Speicher nach dem Import freigeben – bei größeren Unterlagen wichtig.
+  const extracted=pages.join('\n\n');
+  await pdf.destroy();
+  return extracted;
 }
 
 function validate(input,allowEmpty=true){
