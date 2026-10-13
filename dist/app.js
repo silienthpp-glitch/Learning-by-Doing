@@ -143,48 +143,23 @@ function learningInsights(){
  * Das feste Zeichenlimit verhindert große Ollama-Anfragen und unnötigen RAM-Bedarf.
  * Mit usedChars statt wiederholtem parts.join() wächst die Laufzeit annähernd linear.
  */
-function materialContext(subject,topic,setId=''){
-  const limit=30000,parts=[],seen=new Set();
-  let usedChars=0;
-  const addPart=(source,raw)=>{
-    const cleaned=String(raw||'').replace(/\s+/g,' ').trim();
-    if(cleaned.length<20)return;
-    const key=(source+'|'+cleaned.slice(0,500)).toLowerCase();
-    if(seen.has(key))return;
-    seen.add(key);
-    const available=limit-usedChars-(parts.length?2:0);
-    if(available<=0)return;
-    const part=('['+source+'] '+cleaned).slice(0,available);
-    parts.push(part);
-    usedChars+=part.length+(parts.length>1?2:0);
-  };
-  const normalizedSubject=String(subject||'').toLowerCase();
-  let sources=state.sources||[];
-  if(setId)sources=sources.filter(src=>src.setId===setId);
-  else if(subject)sources=sources.filter(src=>(src.subject||'').toLowerCase()===normalizedSubject);
-  for(const src of sources){
-    if(usedChars>=22000)break;
-    addPart(src.name||'Unterlage',src.excerpt);
-  }
-  let list=(state.custom||[]).filter(q=>!q.aiGenerated);
-  if(setId)list=list.filter(q=>q.setId===setId);
-  else if(subject)list=list.filter(q=>(q.subject||'').toLowerCase()===normalizedSubject);
-  const term=String(topic||'').trim().toLowerCase();
-  if(term){
-    const relevant=list.filter(q=>[q.topic,q.prompt,q.answer,q.explanation,q.sourceName].some(
-      value=>String(value||'').toLowerCase().includes(term)));
-    if(relevant.length>=2)list=relevant;
-  }
-  if(!list.length&&subject)list=questions().filter(q=>!q.aiGenerated&&(q.subject||'').toLowerCase()===normalizedSubject);
-  for(const q of list){
-    if(usedChars>=limit)break;
-    const source=q.sourceName||setById(q.setId)?.name||'Unterlage';
-    addPart(source,[q.prompt,q.answer,q.explanation].filter(Boolean).join(' '));
-  }
-  return parts.join('\n\n');
+/**
+ * Für die KI nur relevante, belegbare Textabschnitte auswählen.
+ * Alte Importdaten ohne chunks bleiben lesbar, werden aber bewusst NICHT
+ * ungeprüft zur automatischen Generierung verwendet.
+ */
+function sourceChunks(subject,topic,setId=''){
+  const candidates=(state.sources||[]).filter(src=>
+    (setId?src.setId===setId:!subject||src.subject===subject))
+    .flatMap(src=>(src.chunks||[]).map(c=>({...c,sourceName:src.name,sourceId:src.id})));
+  return LearningSourceQuality.select(candidates,topic,4);
 }
-
-function normalizeAiQuestions(items,set,topic,meta={}){
+function materialContext(subject,topic,setId=''){
+  return sourceChunks(subject,topic,setId).map(c=>
+    '[ABSCHNITT '+c.id+' | '+c.sourceName+' | Seite '+c.pageStart+']\n'+c.text
+  ).join('\n\n').slice(0,6000);
+}
+function normalizeAiQuestions(items,set,topic,meta={},sourceEvidence=[]){
   const allowed=new Set(['choice','multichoice','text','truefalse','number','scenario']);
   return (Array.isArray(items)?items:[]).map((q,i)=>{
     const type=allowed.has(q?.type)?q.type:'text';
@@ -199,7 +174,11 @@ function normalizeAiQuestions(items,set,topic,meta={}){
       answer,explanation:String(q?.explanation||'').trim(),steps:Array.isArray(q?.steps)?q.steps.map(String):[],
       type,options,correctOptions,aliases:Array.isArray(q?.aliases)?q.aliases.map(String):[],
       points:Number.isFinite(Number(q?.points))&&Number(q.points)>0?Math.min(10,Number(q.points)):1,
-      aiGenerated:true,aiProvider:state.aiProvider||'ollama',analysis:meta
+      aiGenerated:true,aiProvider:state.aiProvider||'ollama',analysis:meta,
+      chunkId:String(q?.chunkId||''),evidenceQuote:String(q?.evidenceQuote||''),
+      difficulty:String(q?.difficulty||'mittel'),learningObjective:String(q?.learningObjective||''),
+      sourcePage:sourceEvidence.find(c=>c.id===q?.chunkId)?.pageStart||null,
+      sourceName:sourceEvidence.find(c=>c.id===q?.chunkId)?.sourceName||'Unterlagen'
     };
   }).filter(q=>q.prompt&&q.answer);
 }
@@ -209,6 +188,7 @@ async function generateAiSet(form){
     setId=String(d.get('sourceSet')||''),count=Number(d.get('count')||10),status=document.querySelector('#ai-generate-status'),
     button=form.querySelector('button[type=submit]');
   if(!subject||!topic)return;
+  const evidence=sourceChunks(subject,topic,setId);
   const context=materialContext(subject,topic,setId);
   if(context.length<80){status.innerHTML='<span class="error-text">Zu diesem Thema wurden noch nicht genug passende Unterlagen gefunden. Wähle ein Lernset mit importierten Dateien oder importiere zuerst Unterlagen.</span>';return}
   button.disabled=true;status.textContent=providerName()+' analysiert deine vorhandenen Unterlagen und erstellt passende Fragen … Das kann lokal kurz dauern.';
@@ -218,10 +198,18 @@ async function generateAiSet(form){
     const result=await apiJson('/api/ai/generate',{provider:state.aiProvider||'ollama',subject,topic,count,context},controller.signal);
     if(controller.signal.aborted)return;
     const set={id:id('set'),name:'KI · '+topic+' · '+count+' Fragen',subject,kind:'IHK',date:'',createdAt:Date.now(),aiGenerated:true};
-    const added=normalizeAiQuestions(result.questions,set,topic,result.analysis||{});
-    if(!added.length)throw Error('Die KI hat keine nutzbaren Fragen erzeugt.');
+    const proposals=normalizeAiQuestions(result.questions,set,topic,result.analysis||{},evidence);
+    const previous=questions(),accepted=[],rejected=[];
+    for(const q of proposals){
+      const test=LearningSourceQuality.validate(q,evidence,[...previous,...accepted]);
+      if(test.ok)accepted.push({...q,sourceName:test.source.sourceName,
+        sourcePage:test.source.pageStart,qualityNote:test.quality});
+      else rejected.push(test.reason);
+    }
+    const added=accepted;
+    if(!added.length)throw Error('Alle KI-Fragen wurden von der Quellen- und Qualitätsprüfung abgelehnt. Gründe: '+[...new Set(rejected)].join(', '));
     state.sets.push(set);state.custom.push(...added);save();
-    message='KI-Lernset „'+set.name+'“ mit '+added.length+' Fragen erstellt.';
+    message='KI-Lernset „'+set.name+'“ mit '+added.length+' belegten Fragen erstellt. '+rejected.length+' Vorschläge wegen Qualitätsmängeln verworfen.';
     session=null;start('learn',{setId:set.id,limit:added.length});
   }catch(e){status.innerHTML='<span class="error-text">'+(e?.name==='AbortError'?'KI-Erstellung abgebrochen. Es wurden keine Fragen gespeichert.':esc(e.message))+'</span>'}
   finally{if(activeAiRequest===controller)activeAiRequest=null;cancel.remove();button.disabled=false}
@@ -755,23 +743,43 @@ function createSet(form){
   state.sets.push(s);save();message='Lernset „'+s.name+'“ wurde angelegt. Füge jetzt passende Unterlagen hinzu.';render();document.querySelector('#library-forms')?.classList.remove('hidden-section');const picker=document.querySelector('#material-set');if(picker){picker.value=s.id;picker.focus()}announce(message);
 }
 /** Liest ausgewählte Dateien ein, erstellt Karten und speichert nur begrenzte Textauszüge. */
+/**
+ * Import: Originaldatei nicht im Browser ablegen; nur kompakte Abschnitte und
+ * nachweislich vorhandene Frage/Antwort-Paare importieren.
+ * Bild-PDFs werden klar gekennzeichnet, statt erfundene Karten zu erzeugen.
+ */
 async function importMaterials(form){
-  const d=new FormData(form),set=setById(String(d.get('setId')||'')),files=[...document.querySelector('#material-files').files],notes=[];if(!set||!files.length)return;
-  document.querySelector('#material-status').textContent='Dateien werden eingelesen …';let count=0,cards=0;
+  const d=new FormData(form),set=setById(String(d.get('setId')||''));
+  const files=[...document.querySelector('#material-files').files],notes=[];
+  if(!set||!files.length)return;
+  document.querySelector('#material-status').textContent='Dateien werden geprüft …';
+  let count=0,cards=0;
   for(const file of files)try{
-    if(file.size>15000000)throw Error('Datei größer als 15 MB.');
-    let added,sourceExcerpt='';
-    if(file.name.toLowerCase().endsWith('.json')){
-      added=validate(JSON.parse(await file.text()),false).map(q=>({...q,subject:q.subject||set.subject,setId:set.id,sourceName:file.name}));
+    if(file.size>15000000)throw Error('Datei über 15 MB; bitte vorher teilen.');
+    const isJson=file.name.toLowerCase().endsWith('.json');
+    let added=[],raw='',parts=[];
+    if(isJson){
+      added=validate(JSON.parse(await file.text()),false).map(q=>({...q,setId:set.id,sourceName:file.name}));
     }else{
-      const text=file.name.toLowerCase().endsWith('.pdf')?await pdfText(file):await file.text();
-      sourceExcerpt=cleanImportedText(text).slice(0,12000);
-      added=cardsFromText(text,set,file.name);
-      if(!added.length)throw Error('Keine sinnvollen Lernkarten gefunden.');
+      raw=file.name.toLowerCase().endsWith('.pdf')?await pdfText(file):await file.text();
+      if(cleanImportedText(raw).length<75)
+        throw Error('Keine durchsuchbare Textebene erkannt (Scan). Bitte vor dem Import lokal OCR durchführen.');
+      const uniqueName=file.name+'-'+file.size;
+      parts=LearningSourceQuality.chunks(raw,uniqueName);
+      if(!parts.length)throw Error('Keine fachlich geeigneten Textabschnitte gefunden.');
+      // Blindes Erzeugen aus zufälligen Begriffen ist absichtlich deaktiviert.
+      // Die KI erzeugt bei Bedarf anschließend geprüfte, belegte Fragen.
     }
-    state.custom.push(...added);state.sources.push({id:id('src'),name:file.name,subject:set.subject,setId:set.id,cards:added.length,excerpt:sourceExcerpt,addedAt:Date.now()});count++;cards+=added.length;
+    state.custom.push(...added);
+    state.sources.push({id:id('src'),name:file.name,subject:set.subject,setId:set.id,
+      cards:added.length,excerpt:'',chunks:parts,addedAt:Date.now()});
+    count++;cards+=added.length;
   }catch(e){notes.push(file.name+': '+e.message)}
-  save();message=count+' Datei(en) eingelesen · '+cards+' neue Karten/Fragen.'+(notes.length?' Hinweise: '+notes.join(' | '):'');render();document.querySelector('#library-forms')?.classList.remove('hidden-section');const status=document.querySelector('#material-status');if(status&&count){const next=document.createElement('button');next.type='button';next.textContent='Jetzt mit dem Lernset lernen';next.className='quiet';next.onclick=()=>start('learn',{setId:set.id});status.after(next)}announce(message);
+  save();
+  message=count+' Datei(en) importiert · '+cards+' vorhandene Lernkarten; neue Fragen erzeugst du über „Mit KI lernen“. '+
+    (notes.length?'Hinweise: '+notes.join(' | '):'');
+  render();document.querySelector('#library-forms')?.classList.remove('hidden-section');
+  announce(message);
 }
 
 function cleanImportedText(text){
@@ -957,7 +965,7 @@ async function pdfText(file){
       }
     }
     if(current.length)lines.push(current.join(' ').replace(/\s+/g,' ').trim());
-    pages.push(lines.filter(Boolean).join('\n'));
+    pages.push('[[SEITE '+i+']]\n'+lines.filter(Boolean).join('\n'));
   }
   return pages.join('\n\n');
 }
