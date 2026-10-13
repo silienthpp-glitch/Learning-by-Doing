@@ -76,8 +76,8 @@ Gib nur ein JSON-Objekt zurück:
 "questions":[{"type":"choice|multichoice|text|truefalse|number|scenario",
 "topic":"...","subtopic":"...","prompt":"...","answer":"...",
 "options":[],"correctOptions":[],"aliases":[],"explanation":"...",
-"steps":[],"points":1}]}
-Keine erfundenen Quellen, keine fremden Themen. Bevorzuge Qualität vor Menge."#;
+"steps":[],"points":1,"chunkId":"Abschnitt-ID","evidenceQuote":"wörtliches Zitat","difficulty":"mittel","learningObjective":"Lernziel"}]}
+Nur die genannten ABSCHNITTE sind erlaubt. Für jede Frage MUSS chunkId einer angegebenen ABSCHNITT-ID entsprechen und evidenceQuote ein mindestens 22 Zeichen langes, wörtliches Zitat aus diesem Abschnitt sein. Ergänze difficulty (leicht|mittel|schwer) und learningObjective. Erfinde keine Zitate. Bevorzuge Qualität vor Menge."#;
 const EVALUATE:&str=r#"Bewerte IHK-Lernantworten fair, ohne Rechtschreibfehler zu bestrafen.
 Nutze die Musterlösung und Erklärung als Rahmen. Antworte ausschließlich in JSON:
 {"rating":"correct|partial|wrong","score":0.0,"feedback":"...","modelAnswer":"..."}
