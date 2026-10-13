@@ -18,3 +18,5 @@ jobs:
           python3 -m py_compile start.py
       - name: Document quality regression
         run: node tests/document-quality.cjs
+      - name: Simulated semantic review
+        run: python3 -m unittest discover -s tests -p 'test_review.py'
