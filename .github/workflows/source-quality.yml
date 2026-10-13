@@ -15,7 +15,7 @@ jobs:
         run: |
           node --check dist/app.js
           node --check dist/document-quality.js
-          python3 -m py_compile start.py
+          python3 -m py_compile start.py scripts/test_real_ollama.py scripts/ocr_local.py
       - name: Document quality regression
         run: node tests/document-quality.cjs
       - name: Simulated semantic review
