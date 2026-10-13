@@ -34,6 +34,30 @@ function responseFor(context, bad=false) {
     }]
   };
 }
+// Kleines eigenständig erzeugtes PDF – keine urheberrechtlich geschützten Dateien.
+function makePdf(text) {
+  const safe=text.replace(/[\\()]/g,'');
+  const stream='BT /F1 16 Tf 72 740 Td ('+safe+') Tj ET\n';
+  const objects=[
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Length '+Buffer.byteLength(stream)+' >>\nstream\n'+stream+'endstream'
+  ];
+  let out='%PDF-1.4\n';
+  const offsets=[0];
+  for(let i=0;i<objects.length;i++){
+    offsets.push(Buffer.byteLength(out));
+    out+=(i+1)+' 0 obj\n'+objects[i]+'\nendobj\n';
+  }
+  const xref=Buffer.byteLength(out);
+  out+='xref\n0 '+(objects.length+1)+'\n0000000000 65535 f \n';
+  for(const pos of offsets.slice(1))out+=String(pos).padStart(10,'0')+' 00000 n \n';
+  out+='trailer\n<< /Root 1 0 R /Size '+(objects.length+1)+' >>\nstartxref\n'+xref+'\n%%EOF\n';
+  return Buffer.from(out);
+}
+
 async function prepare(page, name) {
   await page.goto(BASE+'/#library');
   await page.locator('#show-set-create').click();
@@ -87,6 +111,13 @@ async function generate(page, shouldAccept) {
     await prepare(web,'Web-Import');
     // PDF.js muss vollständig aus lokalen Assets ohne CDN geladen werden.
     assert(await web.evaluate(async()=>typeof (await pdfLib()).getDocument==='function'));
+    const pdf=makePdf('DHCP Server verteilt Netzwerkadressen im Unternehmen.');
+    const extracted=await web.evaluate(async bytes=>{
+      const file=new File([Uint8Array.from(bytes)],'test.pdf',{type:'application/pdf'});
+      return await pdfText(file);
+    },Array.from(pdf));
+    assert(extracted.includes('DHCP Server'),'PDF.js muss lokalen echten PDF-Text auslesen');
+    assert(extracted.includes('[[SEITE 1]]'),'Seitenbezug muss aus PDF erhalten bleiben');
     await generate(web,true);
     assert.deepEqual(webErrors,[],'Web-JavaScript darf nicht abstürzen');
     console.log('PASS Web: lokaler PDF-Loader, Import, Auswahl, KI-API, Quellenprüfung, Speichern');
