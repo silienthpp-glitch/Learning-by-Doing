@@ -79,3 +79,13 @@ python3 scripts/ocr_local.py "/Pfad/zur/Pruefung.pdf"
 Es wird eine neue Datei mit Endung `.durchsuchbar.pdf` erzeugt. Das Original wird nicht überschrieben. Die OCR verwendet höchstens zwei Arbeitsprozesse (`--jobs 2`), um CPU- und RAM-Last zu begrenzen. Anschließend wird **nur die neue PDF** in der Lernplattform importiert.
 
 **Noch offen:** Eine automatisch startende OCR direkt im Web-/Tauri-Dateiimport ist nicht implementiert; dort wird bei fehlender Textebene verständlich abgebrochen. OCR-Ergebnisse müssen bei Netzwerkskizzen, Tabellen und kleinen Scan-Schriften kontrolliert werden.
+
+## End-to-End- und Offline-Tests (Web und Client)
+
+Nach der Erstinstallation steht PDF.js mit `npm install && npm run prepare:assets` lokal zur Verfügung. Für Desktop-Builds wird dies automatisch während `npm run desktop:build` durchgeführt.
+
+Der neue Chromium-Integrationstest nutzt eine eigens erzeugte Test-PDF sowie TXT-Testinhalte. Er prüft den lokalen PDF.js-Ladevorgang ohne CDN, Seitentags, Lernset-Erstellung, TXT-Import, Sichtbarkeit des Lernsets in der KI-Auswahl, Generierung einer belegten Frage und deren Speicherung. Ein bewusst erfundenes Quellenzitat wird abgewiesen. Danach wird derselbe Ablauf mit einer simulierten Tauri-`invoke`-Brücke getestet. Rust-Kompilierung wird unabhängig über drei Desktop-Builds geprüft.
+
+`tests/test_api_contract.py` prüft außerdem HTTP-GET/POST, Standard-Ollama-Auswahl, fail-closed Qualitätskontrolle und dass bei Ollama-Ausfall keine automatische OpenAI-Anfrage erfolgt.
+
+**Noch nicht durch diese automatisierten Tests ersetzt:** echte macOS-Tauri-WebView, realer Ollama-Modelloutput, Scan-OCR und der Import aller urheberrechtlich geschützten Originalprüfungen. Diese bleiben lokal und werden nicht nach GitHub übertragen.
