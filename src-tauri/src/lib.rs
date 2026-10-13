@@ -90,6 +90,24 @@ Nutze die Musterlösung und Erklärung als Rahmen. Antworte ausschließlich in J
 {"rating":"correct|partial|wrong","score":0.0,"feedback":"...","modelAnswer":"..."}
 correct ab 0.85, partial ab 0.4, sonst wrong; score zwischen 0 und 1."#;
 
+/// Nur fachlich konsistente KI-Punktzahlen an die Lernstatistik durchlassen.
+/// Fehler führen im Frontend zur Selbstkontrolle statt zu einem falschen Ergebnis.
+fn checked_evaluation(result: Value) -> Result<Value, String> {
+    let rating = result["rating"].as_str().ok_or("KI-Bewertung nicht eindeutig; Selbstkontrolle verwenden.")?;
+    let score = result["score"].as_f64().ok_or("KI-Bewertung ohne gültige Punktzahl.")?;
+    if !score.is_finite() || !(0.0..=1.0).contains(&score) {
+        return Err("KI-Bewertung mit ungültiger Punktzahl.".into());
+    }
+    let consistent = match rating {
+        "correct" => score >= 0.85,
+        "partial" => (0.4..0.85).contains(&score),
+        "wrong" => score < 0.4,
+        _ => false
+    };
+    if !consistent { return Err("KI-Bewertung widersprüchlich; Selbstkontrolle verwenden.".into()) }
+    Ok(result)
+}
+
 // Die einzige aus JavaScript aufrufbare native Funktion.
 #[tauri::command]
 async fn ai_request(app:tauri::AppHandle,endpoint:String,payload:Option<Value>)->Result<Value,String>{
@@ -144,7 +162,8 @@ async fn ai_request(app:tauri::AppHandle,endpoint:String,payload:Option<Value>)-
       let q=data.get("question").ok_or("Frage fehlt.")?;
       let answer=data.get("answer").ok_or("Antwort fehlt.")?;
       let user=format!("Frage: {q}\nAntwort: {answer}");
-      ask(&app,data["provider"].as_str().unwrap_or("ollama"),EVALUATE,&user).await
+      let result=ask(&app,data["provider"].as_str().unwrap_or("ollama"),EVALUATE,&user).await?;
+      checked_evaluation(result)
     }
     _=>Err("Nicht erlaubter Desktop-Endpunkt.".into())
   }
@@ -154,4 +173,26 @@ async fn ai_request(app:tauri::AppHandle,endpoint:String,payload:Option<Value>)-
 pub fn run(){
   tauri::Builder::default().invoke_handler(tauri::generate_handler![ai_request])
     .run(tauri::generate_context!()).expect("Desktop-App konnte nicht gestartet werden");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn accepts_consistent_grades() {
+        for value in [json!({"rating":"correct","score":1.0}),
+                      json!({"rating":"partial","score":0.5}),
+                      json!({"rating":"wrong","score":0.0})] {
+            assert!(checked_evaluation(value).is_ok());
+        }
+    }
+    #[test]
+    fn rejects_invalid_or_contradictory_grades() {
+        for value in [json!({"rating":"wrong","score":0.99}),
+                      json!({"rating":"correct","score":0.1}),
+                      json!({"rating":"partial","score":null}),
+                      json!({"rating":"unknown","score":0.5})] {
+            assert!(checked_evaluation(value).is_err());
+        }
+    }
 }
