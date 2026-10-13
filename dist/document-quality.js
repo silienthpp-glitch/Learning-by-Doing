@@ -29,6 +29,17 @@
       const line=rawLine.trim();
       if(!line){if(part&&!part.endsWith('\n\n'))part+='\n\n';continue;}
       if(title(line)&&line.length<120){flush();heading=line;start=currentPage;continue;}
+      if(line.length>max){
+        // Auch sehr lange PDF-Zeilen in begrenzte Abschnitte zerlegen.
+        // Andersfalls könnte ein kompletter OCR-Absatz den Kontext sprengen.
+        for(let offset=0;offset<line.length;offset+=max){
+          const fragment=line.slice(offset,offset+max);
+          if(part.length+fragment.length>max)flush();
+          if(!part)start=currentPage;
+          part+=(part?' ':'')+fragment;last=currentPage;
+        }
+        continue;
+      }
       if(!part)start=currentPage;
       // Lange Absätze werden nur als Notlösung an Satzgrenzen getrennt.
       if(part.length+line.length>max&&part.length>120)flush();
