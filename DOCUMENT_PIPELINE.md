@@ -6,11 +6,11 @@
 2. `makeStudyCard()` konstruierte die Frage »Erkläre den Zusammenhang zwischen X und Y«, sobald zwei großgeschriebene Begriffe im gleichen Abschnitt standen. Der fachliche Zusammenhang wurde nicht bewiesen. Neue Importe benutzen diesen Weg nicht mehr.
 3. `materialContext()` mischte zuvor Textauszüge unterschiedlicher Quellen und unkontrolliert vorhandene Lernkarten. Nun werden begrenzte relevante Abschnitte mit ID, Dateiname und Seitenzahl ausgewählt.
 4. `normalizeAiQuestions()` prüfte zuvor vor allem das Feldformat. Nun müssen von der KI erstellte Fragen ein `chunkId` und `evidenceQuote` besitzen. Die neue Prüffunktion lehnt fehlende/nicht vorhandene Zitate, unzulässige Antwortoptionen und sehr ähnliche Fragen ab.
-5. Es gab noch keine unabhängige fachliche Zweitbewertung des KI-Ergebnisses. Auch die neue Textbelegprüfung **beweist nicht die fachliche Richtigkeit** einer behaupteten Aussage. Eine gesonderte semantische Ollama-Zweitprüfung ist noch offen.
+5. Eine unabhängige fachliche Zweitbewertung fehlte. Neu prüft Ollama nach der Generierung in einer **einzigen zusätzlichen Batch-Anfrage** maximal acht Kandidaten; nur von dieser Zweitprüfung akzeptierte Vorschläge gehen zur abschließenden Textbeleg-/Duplikatprüfung. Dennoch ist auch eine KI-Zweitprüfung nicht beweissicher – fachliche Stichproben bleiben nötig.
 
 ## Verarbeitung (neue erste Stufe)
 
-`PDF-Text / TXT` → `[[SEITE n]]` → `Abschnitte` → `Themenrelevanz` → `4 kurze Abschnitte (maximal 6.000 Zeichen)` → `Ollama oder explizit OpenAI` → `Textbeleg- und Dublettenprüfung` → `Lernset speichern`.
+`PDF-Text / TXT` → `[[SEITE n]]` → `Abschnitte` → `Themenrelevanz` → `4 kurze Abschnitte (maximal 6.000 Zeichen)` → `Ollama oder explizit OpenAI` → `zweite fachliche Batch-Prüfung` → `Textbeleg- und Dublettenprüfung` → `Lernset speichern`.
 
 Importierte Originaldateien werden nicht in GitHub hochgeladen. Die Abschnitte liegen wie bisher nur in den lokalen Browserdaten der App.
 
@@ -42,7 +42,7 @@ Die Beispiele sind **redaktionell aus den Unterlagen abgeleitet** und KEINE tats
 - `dist/document-quality.js`: deterministischer Chunker, relevante Auswahl, Textbeleg-/Formprüfung, Ähnlichkeitsfilter.
 - `dist/index.html`: Modul laden.
 - `dist/app.js`: Seitentags im PDF-Text, kein automatisches Anlegen fragwürdiger Karten; Quellenabschnitte speichern; relevante Kontextauswahl und Validierung vor persistenter Speicherung.
-- `start.py` und `src-tauri/src/lib.rs`: Quellenzitat, Abschnitts-ID, Lernziel und Schwierigkeitsgrad im Modell-Ausgabeformat verpflichtend.
+- `start.py` und `src-tauri/src/lib.rs`: Quellenzitat, Abschnitts-ID, Lernziel und Schwierigkeitsgrad im Modell-Ausgabeformat verpflichtend sowie zweiter Modellaufruf zur fachlichen Batch-Prüfung mit höchstens acht Kandidaten.
 - `tests/document-quality.cjs`: Regressionstests.
 - `.github/workflows/source-quality.yml`: Checks ohne Ollama- oder API-Kosten.
 
