@@ -20,3 +20,6 @@ src-tauri/icons/*.icns
 
 # Lokale IHK-Unterlagen niemals versehentlich hochladen
 IHK-Unterlagen/
+
+# Generierte lokale PDF.js-Bibliothek (aus npm install)
+dist/vendor/

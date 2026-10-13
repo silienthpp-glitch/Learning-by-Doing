@@ -76,8 +76,15 @@ Gib nur ein JSON-Objekt zurück:
 "questions":[{"type":"choice|multichoice|text|truefalse|number|scenario",
 "topic":"...","subtopic":"...","prompt":"...","answer":"...",
 "options":[],"correctOptions":[],"aliases":[],"explanation":"...",
-"steps":[],"points":1}]}
-Keine erfundenen Quellen, keine fremden Themen. Bevorzuge Qualität vor Menge."#;
+"steps":[],"points":1,"chunkId":"Abschnitt-ID","evidenceQuote":"wörtliches Zitat","difficulty":"mittel","learningObjective":"Lernziel"}]}
+Nur die genannten ABSCHNITTE sind erlaubt. Für jede Frage MUSS chunkId einer angegebenen ABSCHNITT-ID entsprechen und evidenceQuote ein mindestens 22 Zeichen langes, wörtliches Zitat aus diesem Abschnitt sein. Ergänze difficulty (leicht|mittel|schwer) und learningObjective. Erfinde keine Zitate. Bevorzuge Qualität vor Menge."#;
+// Eine zusätzliche Batch-Prüfung statt acht einzelner Modellaufrufe.
+const REVIEW:&str=r#"Prüfe jede Frage anhand der Originalabschnitte fachlich streng.
+Akzeptiere nur eindeutige Fragen mit belegbarer richtiger Musterlösung.
+Lehne unbelegte Antworten, Dubletten und triviale Fragen ab.
+Antworte ausschließlich mit JSON:
+{"acceptedIndices":[0,2],"reason":"kurze Begründung"}
+Die Liste enthält nullbasierte Indizes. Im Zweifel ablehnen."#;
 const EVALUATE:&str=r#"Bewerte IHK-Lernantworten fair, ohne Rechtschreibfehler zu bestrafen.
 Nutze die Musterlösung und Erklärung als Rahmen. Antworte ausschließlich in JSON:
 {"rating":"correct|partial|wrong","score":0.0,"feedback":"...","modelAnswer":"..."}
@@ -111,13 +118,25 @@ async fn ai_request(app:tauri::AppHandle,endpoint:String,payload:Option<Value>)-
       if subject.is_empty() || topic.is_empty() || context.len()<80{
         return Err("Bitte Fach, Thema und passende Unterlagen auswählen.".into());
       }
-      let n=data["count"].as_u64().unwrap_or(10).clamp(1,30);
+      let n=data["count"].as_u64().unwrap_or(8).clamp(1,8);
       let user=format!("Fach: {subject}\nThema: {topic}\nAnzahl: {n}\nUnterlagen:\n{context}");
       let provider=data["provider"].as_str().unwrap_or("ollama");
       let mut result=ask(&app,provider,GENERATE,&user).await?;
-      let questions=result["questions"].as_array_mut().ok_or("Keine Lernfragen erstellt.")?;
-      questions.truncate(n as usize);
-      if questions.is_empty(){return Err("Keine Lernfragen erzeugt.".into())}
+      let candidates:Vec<Value>=result["questions"].as_array()
+        .ok_or("Keine Lernfragen erstellt.")?.iter().take((n as usize).min(8)).cloned().collect();
+      if candidates.is_empty(){return Err("Keine Lernfragen erzeugt.".into())}
+      // Qualität vor Anzahl: zweiter lokaler Ollama-/opt-in OpenAI-Aufruf.
+      let review_input=format!("Originalabschnitte:\n{context}\n\nKandidaten:\n{}",
+        Value::Array(candidates.clone()));
+      let review=ask(&app,provider,REVIEW,&review_input).await?;
+      let approved=review["acceptedIndices"].as_array()
+        .ok_or("Qualitätskontrolle lieferte keine gültige Freigabeliste.")?;
+      let mut kept=Vec::new();
+      for (index,item) in candidates.into_iter().enumerate(){
+        if approved.iter().any(|v|v.as_u64()==Some(index as u64)){kept.push(item);}
+      }
+      if kept.is_empty(){return Err("Keine Frage hat die zweite Qualitätsprüfung bestanden.".into())}
+      result["questions"]=Value::Array(kept);
       Ok(result)
     }
     "/api/ai/evaluate"=>{

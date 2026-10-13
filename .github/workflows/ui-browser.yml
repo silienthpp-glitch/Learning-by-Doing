@@ -1,7 +1,7 @@
 name: Browser UI tests
 on:
   push:
-    branches: [feat/modern-learning-gui]
+    branches: [feat/modern-learning-gui, feat/source-grounded-questions]
   workflow_dispatch:
 
 concurrency:
@@ -24,6 +24,10 @@ jobs:
           npm init -y
           npm install --no-save playwright@1.58.2
           npx playwright install --with-deps chromium
+      - name: Install local PDF reader for offline imports
+        run: |
+          npm install
+          npm run prepare:assets
       - name: Start local server
         run: |
           python3 start.py >/tmp/learning-by-doing-server.log 2>&1 &
@@ -35,6 +39,10 @@ jobs:
         env:
           NODE_PATH: /tmp/learning-by-doing-playwright/node_modules
         run: node tests/ui-smoke.cjs
+      - name: Test complete import and AI workflows
+        env:
+          NODE_PATH: /tmp/learning-by-doing-playwright/node_modules
+        run: node tests/integration-browser.cjs
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4

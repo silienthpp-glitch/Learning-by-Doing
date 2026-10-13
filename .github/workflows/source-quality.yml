@@ -1,0 +1,22 @@
+name: Source-grounded learning tests
+on:
+  push:
+    branches: [feat/source-grounded-questions]
+  workflow_dispatch:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check dist/app.js
+          node --check dist/document-quality.js
+          python3 -m py_compile start.py
+      - name: Document quality regression
+        run: node tests/document-quality.cjs
+      - name: Simulated semantic review
+        run: python3 -m unittest discover -s tests -p 'test_*.py'

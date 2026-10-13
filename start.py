@@ -47,7 +47,7 @@ load_env(BASE / ".env")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:4b").strip() or "qwen3.5:4b"
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna").strip() or "gpt-6-luna"
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip() or "gpt-4.1-mini"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 AI_TIMEOUT = max(30, int(os.getenv("AI_TIMEOUT", "180") or "180"))
 MAX_CONTEXT_CHARS = 32000
@@ -286,6 +286,35 @@ def clipped_context(value: Any) -> str:
     return text
 
 
+
+def review_generated_questions(provider: str, context: str, questions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Zweite KI-Prüfung: unbelegte oder inkonsistente Kandidaten verwerfen.
+
+    Eine einzige Batch-Anfrage prüft höchstens acht Kandidaten. Wenn die
+    Zweitprüfung fehlschlägt, werden keine ungeprüften Fragen zurückgegeben.
+    Der zusätzliche Textbeleg-Abgleich im Browser bleibt unabhängig davon aktiv.
+    """
+    candidates = questions[:8]
+    review_system = """Du bist ein strenger Prüfer für IHK-Lernfragen.
+Du erhältst Originalabschnitte und daraus generierte Fragen.
+Nutze ausschließlich die Originalabschnitte; jedes Zitat muss tatsächlich existieren.
+Akzeptiere eine Frage NUR, wenn die Musterlösung fachlich zum Kontext passt,
+alle für die Antwort nötigen Angaben vorhanden sind und die Formulierung eindeutig ist.
+Lehne unbelegte, irreführende, triviale und doppelte Fragen ab.
+Antworte NUR mit JSON: {"acceptedIndices":[0,2],"reason":"kurze Begründung"}.
+Die Indizes sind nullbasiert. Im Zweifel ablehnen."""
+    review_user = (
+        "Originalabschnitte:\n" + context + "\n\nKandidaten:\n"
+        + json.dumps(candidates, ensure_ascii=False)
+    )
+    result = run_ai(provider, review_system, review_user)
+    indexes = result.get("acceptedIndices")
+    if not isinstance(indexes, list):
+        raise ApiError("Qualitätskontrolle lieferte keine gültige Freigabeliste.", 502)
+    approved = {i for i in indexes if type(i) is int and 0 <= i < len(candidates)}
+    return [question for i, question in enumerate(candidates) if i in approved]
+
+
 def generate_questions(payload: dict[str, Any]) -> dict[str, Any]:
     provider = str(payload.get("provider") or "ollama")
     subject = str(payload.get("subject") or "").strip()
@@ -294,7 +323,8 @@ def generate_questions(payload: dict[str, Any]) -> dict[str, Any]:
         count = int(payload.get("count") or 10)
     except (TypeError, ValueError):
         count = 10
-    count = count if count in (10, 20, 30) else 10
+    # Die zweite Qualitätsrunde prüft bewusst höchstens acht Kandidaten.
+    count = max(1, min(8, count))
     context = clipped_context(payload.get("context"))
 
     if not subject:
@@ -308,7 +338,7 @@ def generate_questions(payload: dict[str, Any]) -> dict[str, Any]:
 
     system = """Du bist ein präziser IHK-Lerntrainer für Fachinformatiker/in Systemintegration.
 Erstelle ausschließlich fachlich passende Lernfragen zum angeforderten Thema.
-Die bereitgestellten Lernunterlagen sind die wichtigste Wissensquelle. Vermische keine fremden Themen.
+Die bereitgestellten Lernunterlagen sind die EINZIGE Wissensquelle. Vermische keine fremden Themen. Jede Frage muss durch ein Zitat im angegebenen ABSCHNITT wörtlich belegt sein. Wenn keine eindeutige Grundlage existiert, erstelle KEINE Frage.
 Wenn ein Textabschnitt offensichtlich Kopfzeile, Seitenzahl, organisatorischer Hinweis oder fachfremd ist, ignoriere ihn.
 Formuliere auf Ausbildungsniveau, praxisnah und verständlich.
 
@@ -341,7 +371,11 @@ Gib NUR ein JSON-Objekt zurück, ohne Markdown:
       "aliases": [],
       "explanation": "...",
       "steps": [],
-      "points": 1
+      "points": 1,
+      "chunkId": "ID eines ABSCHNITT aus dem Kontext",
+      "evidenceQuote": "wörtliches Zitat aus genau diesem Abschnitt (mindestens 22 Zeichen)",
+      "difficulty": "leicht|mittel|schwer",
+      "learningObjective": "konkretes Lernziel"
     }
   ]
 }"""
@@ -354,7 +388,7 @@ WICHTIG:
 1. Nutze nur Inhalte, die zum Thema "{topic}" passen.
 2. Bevorzuge Aussagen aus den Unterlagen.
 3. Wenn Unterlagen mehrere Themen enthalten, filtere streng auf "{topic}".
-4. Erzeuge bis zu {count} hochwertige Fragen; Qualität ist wichtiger als künstliches Auffüllen.
+4. Erzeuge bis zu {count} hochwertige Fragen; Qualität ist wichtiger als künstliches Auffüllen.\n5. Nutze nur ABSCHNITT-IDs aus den Unterlagen. Kopiere evidenceQuote wörtlich. Eine erfundene ID oder ein erfundenes Zitat führt zur Ablehnung.
 
 Lernunterlagen:
 --- BEGINN UNTERLAGEN ---
@@ -365,7 +399,10 @@ Lernunterlagen:
     questions = result.get("questions")
     if not isinstance(questions, list) or not questions:
         raise ApiError("Die KI konnte aus diesen Unterlagen keine passenden Fragen erzeugen.", 502)
-    result["questions"] = questions[:count]
+    checked = review_generated_questions(provider, context, questions[:count])
+    if not checked:
+        raise ApiError("Keine Frage hat die zweite fachliche Qualitätskontrolle bestanden.", 502)
+    result["questions"] = checked
     return result
 
 
