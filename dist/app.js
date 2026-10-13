@@ -545,7 +545,7 @@ function progress(){
 function guide(){
   const steps=[
     {n:'01',icon:'▣',title:'Fach & Lernset anlegen',text:'Öffne „Fächer & Lernsets“. Lege für eine Klausur, einen Test oder die IHK ein Lernset an. Fach, Name und optionales Prüfungsdatum helfen dir, alles sauber zu trennen.',link:'#library',action:'Lernset anlegen'},
-    {n:'02',icon:'⇧',title:'Unterlagen hinzufügen',text:'Ordne PDF-, TXT-, Markdown- oder JSON-Dateien einem Lernset zu. Aus PDF/TXT/MD erstellt die App Selbstkontroll-Lernkarten; JSON kann fertige Fragen enthalten.',link:'#library',action:'Unterlagen öffnen'},
+    {n:'02',icon:'⇧',title:'Unterlagen hinzufügen',text:'Ordne PDF-, TXT-, Markdown- oder JSON-Dateien einem Lernset zu. Textdokumente werden als Quellenabschnitte gespeichert; danach kannst du mit Ollama geprüfte Fragen erzeugen. JSON kann direkt fertige Fragen enthalten.',link:'#library',action:'Unterlagen öffnen'},
     {n:'03',icon:'▷',title:'Lernrunde starten',text:'Unter „Lernen“ kannst du nach Fach, Thema oder Lernset filtern. Eine Runde enthält bis zu 10 Aufgaben. Fällige Wiederholungen werden bevorzugt.',link:'#learn',action:'Lernen starten'},
     {n:'04',icon:'↻',title:'Fehler gezielt wiederholen',text:'Falsche oder noch unsichere Aufgaben landen im Fehlertraining. Beantworte sie erneut, bis das Wissen sicherer sitzt.',link:'#errors',action:'Fehlertraining'},
     {n:'05',icon:'♟',title:'Mit Lernspielen festigen',text:'Memory, Wissensdetektiv und „Was ist falsch?“ bringen Abwechslung hinein. Spiele geben zusätzlich XP und helfen beim Wiederholen.',link:'#games',action:'Lernspiele öffnen'},
