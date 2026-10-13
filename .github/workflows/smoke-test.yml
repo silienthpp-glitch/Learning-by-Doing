@@ -2,7 +2,7 @@ name: Learning by Doing Smoke Test
 
 on:
   push:
-    branches: [main, feat/modern-learning-gui]
+    branches: [main, feat/modern-learning-gui, qa/full-system-e2e]
   workflow_dispatch:
 
 jobs:
@@ -55,7 +55,10 @@ jobs:
                   for message in payload.get("messages", []):
                       if message.get("role") == "system":
                           system = message.get("content", "")
-                  if "bewertest Antworten" in system:
+                  if "strenger Prüfer" in system:
+                      # Zweitprüfung freigeben, sonst würden ungeprüfte Fragen weitergegeben.
+                      result = {"acceptedIndices": [0], "reason": "Belegter SQL-Fakt."}
+                  elif "bewertest Antworten" in system:
                       result = {
                           "rating": "correct",
                           "score": 1,
@@ -76,7 +79,11 @@ jobs:
                               "aliases": [],
                               "explanation": "SELECT liest Datensätze.",
                               "steps": [],
-                              "points": 1
+                              "points": 1,
+                              "chunkId": "sql-kapitel:0",
+                              "evidenceQuote": "SQL SELECT liest Daten aus Tabellen.",
+                              "difficulty": "mittel",
+                              "learningObjective": "SQL-Datenabfrage erklären"
                           }]
                       }
                   self.send_json({"message": {"content": json.dumps(result)}})
