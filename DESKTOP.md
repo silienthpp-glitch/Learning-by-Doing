@@ -73,3 +73,9 @@ Die Desktop-App benötigt keinen permanenten Python-Server. Ollama selbst kann a
 Die Desktop-Brücke erlaubt ausschließlich drei KI-Funktionen. Keine Shell-Befehle und keine beliebigen Netzwerkziele sind aus der Webseite freigegeben. Ollama darf nur lokal unter `localhost` oder `127.0.0.1` angesprochen werden.
 
 Die appweiten Browserdaten werden weiterhin im persistenten WebView-Speicher abgelegt. Für spätere größere PDF-Bestände empfiehlt sich eine gezielte Migration in eine lokale Datenbank; das ist **noch nicht** umgesetzt.
+
+## Offline-PDF-Import und Desktop-Prüfung
+
+Beim `npm run desktop:dev` und `npm run desktop:build` werden die PDF.js-Dateien automatisch lokal nach `dist/vendor/` kopiert. Der Desktop-Client verwendet **keine fremden PDF-JavaScript-Dateien vom CDN**. Dafür vorher `npm install` ausführen.
+
+Die GitHub-Builds bestätigen die Erstellung von macOS-/Windows-/Linux-Installationspaketen. Die Integrationstests simulieren die Tauri-Aufrufe in Chromium und prüfen denselben Import-/KI-Ablauf. Ein tatsächlicher End-to-End-Test der installierten Anwendung auf einem Mac M4 sowie echtes Ollama, Dateidialoge und OCR bleiben weiterhin notwendig.
