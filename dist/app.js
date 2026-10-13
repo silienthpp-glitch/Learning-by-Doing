@@ -752,7 +752,14 @@ function createSet(form){
 async function importMaterials(form){
   const d=new FormData(form),set=setById(String(d.get('setId')||''));
   const files=[...document.querySelector('#material-files').files],notes=[];
-  if(!set||!files.length)return;
+  if(!set){
+    document.querySelector('#material-status').textContent='Bitte wähle zuerst ein Lernset aus.';
+    return;
+  }
+  if(!files.length){
+    document.querySelector('#material-status').textContent='Bitte wähle zuerst eine oder mehrere Dateien aus.';
+    return;
+  }
   document.querySelector('#material-status').textContent='Dateien werden geprüft …';
   let count=0,cards=0;
   for(const file of files)try{
@@ -784,6 +791,10 @@ async function importMaterials(form){
   message=count+' Datei(en) importiert · '+cards+' vorhandene Lernkarten; neue Fragen erzeugst du über „Mit KI lernen“. '+
     (notes.length?'Hinweise: '+notes.join(' | '):'');
   render();document.querySelector('#library-forms')?.classList.remove('hidden-section');
+  // Nach fehlerhaften Dateien das ausgewählte Lernset behalten:
+  // So können auch Einsteiger die nächste Datei direkt erneut importieren.
+  const picker=document.querySelector('#material-set');
+  if(picker)picker.value=set.id;
   announce(message);
 }
 
