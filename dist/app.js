@@ -185,7 +185,7 @@ function normalizeAiQuestions(items,set,topic,meta={},sourceEvidence=[]){
 /** Verwendet vorhandene Unterlagen als Grundlage; neue Fragen erst nach erfolgreicher KI-Antwort speichern. */
 async function generateAiSet(form){
   const d=new FormData(form),subject=String(d.get('subject')||'').trim(),topic=String(d.get('topic')||'').trim(),
-    setId=String(d.get('sourceSet')||''),count=Number(d.get('count')||10),status=document.querySelector('#ai-generate-status'),
+    setId=String(d.get('sourceSet')||''),count=Number(d.get('count')||8),status=document.querySelector('#ai-generate-status'),
     button=form.querySelector('button[type=submit]');
   if(!subject||!topic)return;
   const evidence=sourceChunks(subject,topic,setId);
@@ -207,6 +207,7 @@ async function generateAiSet(form){
       else rejected.push(test.reason);
     }
     const added=accepted;
+    set.name='KI · '+topic+' · '+added.length+' geprüfte Fragen';
     if(!added.length)throw Error('Alle KI-Fragen wurden von der Quellen- und Qualitätsprüfung abgelehnt. Gründe: '+[...new Set(rejected)].join(', '));
     state.sets.push(set);state.custom.push(...added);save();
     message='KI-Lernset „'+set.name+'“ mit '+added.length+' belegten Fragen erstellt. '+rejected.length+' Vorschläge wegen Qualitätsmängeln verworfen.';
@@ -501,7 +502,7 @@ function library(){
   '<form id="ai-set-form" class="stack-form"><div class="filter-grid">'+
   '<label>Fach<input name="subject" list="ai-subjects" required placeholder="z. B. Datenbanken"><datalist id="ai-subjects">'+subjectOptions.map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></label>'+
   '<label>Thema<input name="topic" list="ai-topics" required placeholder="z. B. SQL / Normalisierung"><datalist id="ai-topics">'+topicOptions.map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></label>'+
-  '<label>Anzahl<select name="count"><option value="10">10 Fragen</option><option value="20">20 Fragen</option><option value="30">30 Fragen</option></select></label></div>'+
+  '<label>Anzahl<select name="count"><option value="4">Bis zu 4 Fragen (schneller)</option><option value="8" selected>Bis zu 8 Fragen (mit Qualitätsprüfung)</option></select></label></div>'+
   '<label>Unterlagen eingrenzen (optional)<select name="sourceSet"><option value="">Automatisch passende Unterlagen</option>'+state.sets.filter(s=>state.sources.some(src=>src.setId===s.id&&Array.isArray(src.chunks)&&src.chunks.length)).map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' · '+esc(s.subject)+'</option>').join('')+'</select></label>'+
   '<div class="actions"><button type="submit">Lernset erstellen & direkt lernen</button><a class="button quiet" href="#settings">KI-Einstellungen</a></div></form>'+
   '<p id="ai-generate-status" class="status-text" role="status" aria-live="polite"></p><div class="hint"><strong>Grundlage:</strong> Für die KI werden passende Textabschnitte deiner importierten Dokumente mit überprüfbarem Quellenbezug ausgewählt. KI-generierte Fragen werden nicht als neue Quelle benutzt.</div></section>'+
