@@ -2,7 +2,7 @@ name: Desktop Builds (macOS, Windows, Linux)
 
 on:
   push:
-    branches: [feat/cross-platform-desktop, feat/source-grounded-questions]
+    branches: [feat/cross-platform-desktop, feat/source-grounded-questions, qa/full-system-e2e]
   workflow_dispatch:
 
 concurrency:
@@ -43,6 +43,9 @@ jobs:
         run: npm run desktop:icons
       - name: Build desktop installation package
         run: npm run desktop:build
+      - name: Verify native Rust unit tests
+        if: runner.os == 'Linux'
+        run: cargo test --manifest-path src-tauri/Cargo.toml
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
