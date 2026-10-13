@@ -323,7 +323,8 @@ def generate_questions(payload: dict[str, Any]) -> dict[str, Any]:
         count = int(payload.get("count") or 10)
     except (TypeError, ValueError):
         count = 10
-    count = count if count in (10, 20, 30) else 10
+    # Die zweite Qualitätsrunde prüft bewusst höchstens acht Kandidaten.
+    count = max(1, min(8, count))
     context = clipped_context(payload.get("context"))
 
     if not subject:
