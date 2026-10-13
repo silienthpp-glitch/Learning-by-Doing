@@ -1,7 +1,7 @@
 name: Source-grounded learning tests
 on:
   push:
-    branches: [feat/source-grounded-questions]
+    branches: [feat/source-grounded-questions, qa/full-system-e2e]
   workflow_dispatch:
 jobs:
   tests:
