@@ -19,6 +19,19 @@ fn setting(app:&tauri::AppHandle,key:&str)->Option<String>{
   }}}
   None
 }
+/// URL prüfen statt nur einen String-Präfix zu vergleichen.
+/// Dadurch sind manipulierte Adressen wie localhost:11434@fremd.example gesperrt.
+fn validated_ollama_base(raw:&str)->Result<String,String>{
+  let url=reqwest::Url::parse(raw).map_err(|_|"Ungültige Ollama-Adresse.".to_string())?;
+  let host=url.host_str().unwrap_or("");
+  let local=host.eq_ignore_ascii_case("localhost")||host=="127.0.0.1";
+  if url.scheme()!="http"||!local||!url.username().is_empty()||
+      url.password().is_some()||url.port().is_none()||
+      url.path()!="/"||url.query().is_some()||url.fragment().is_some(){
+    return Err("Ollama darf ausschließlich unter http://localhost:PORT oder http://127.0.0.1:PORT laufen.".into());
+  }
+  Ok(url.as_str().trim_end_matches('/').to_string())
+}
 fn client(seconds:u64)->Result<reqwest::Client,String>{
   reqwest::Client::builder().timeout(Duration::from_secs(seconds)).build().map_err(|e|e.to_string())
 }
@@ -53,10 +66,8 @@ async fn ask(app:&tauri::AppHandle,provider:&str,system:&str,user:&str)->Result<
     return decode(&texts.join("\n"));
   }
   if provider!="ollama"{return Err("Unbekannte KI-Auswahl.".into())}
-  let base=setting(app,"OLLAMA_URL").unwrap_or("http://127.0.0.1:11434".into());
-  if !base.starts_with("http://127.0.0.1:") && !base.starts_with("http://localhost:"){
-    return Err("Nur lokales Ollama ist erlaubt.".into())
-  }
+  let configured=setting(app,"OLLAMA_URL").unwrap_or("http://127.0.0.1:11434".into());
+  let base=validated_ollama_base(&configured)?;
   let preferred=setting(app,"OLLAMA_MODEL").unwrap_or("qwen3.5:4b".into());
   let name=model(base.trim_end_matches("/"),&preferred).await?
     .ok_or(format!("Kein Modell installiert. Bitte ollama pull {preferred} ausführen."))?;
@@ -115,9 +126,10 @@ async fn ai_request(app:tauri::AppHandle,endpoint:String,payload:Option<Value>)-
     "/api/ai/status"=>{
       let base=setting(&app,"OLLAMA_URL").unwrap_or("http://127.0.0.1:11434".into());
       let preferred=setting(&app,"OLLAMA_MODEL").unwrap_or("qwen3.5:4b".into());
-      let local=if base.starts_with("http://127.0.0.1:") || base.starts_with("http://localhost:"){
-        model(base.trim_end_matches("/"),&preferred).await
-      }else{Err("Ungültige lokale Ollama-Adresse.".into())};
+      let local=match validated_ollama_base(&base){
+        Ok(validated)=>model(&validated,&preferred).await,
+        Err(error)=>Err(error)
+      };
       let ollama=match local{
         Ok(v)=>json!({"reachable":true,"modelReady":v.is_some(),
           "activeModel":v.unwrap_or_default(),"preferredModel":preferred,
@@ -178,6 +190,18 @@ pub fn run(){
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_local_ollama_urls_are_allowed() {
+        for url in ["http://127.0.0.1:11434", "http://localhost:11434/"] {
+            assert!(validated_ollama_base(url).is_ok(), "should accept {url}");
+        }
+        for url in ["https://localhost:11434", "http://localhost:11434@evil.invalid",
+                    "http://127.0.0.1:11434@evil.invalid", "http://evil.invalid:11434",
+                    "http://localhost:11434/path", "http://localhost:11434?x=1",
+                    "file:///tmp/ollama", "http://localhost"] {
+            assert!(validated_ollama_base(url).is_err(), "must reject {url}");
+        }
+    }
     #[test]
     fn accepts_consistent_grades() {
         for value in [json!({"rating":"correct","score":1.0}),
