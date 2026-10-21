@@ -286,3 +286,58 @@ Unter **Fortschritt** kannst du eine JSON-Sicherung herunterladen und später wi
 - Alte PDF-Imports können als Grundlage dienen, solange die daraus erzeugten Textabschnitte/Lernkarten noch im Browser gespeichert sind.
 - OpenAI ist nur eine optionale Alternative und verursacht je nach verwendetem Modell API-Kosten.
 - Originale IHK-Prüfungsunterlagen sollten nicht ohne entsprechende Rechte öffentlich im Repository veröffentlicht werden.
+
+
+## Neuer Lernbereich: Audio, Recording & Live Sound (erste integrierte Ausbaustufe)
+
+Wähle links **Audio & Live Sound** oder öffne `#audio` direkt in der lokalen Anwendung.
+
+Der Bereich ist direkt in Learning by Doing integriert und verwendet **dieselbe lokale Speicherung, Quizbewertung, Wiederholungslogik, XP und Fortschrittsanzeige** wie deine IHK- und IT-Aufgaben. Die bereits vorhandenen Daten werden nicht überschrieben. Der Audio-Bereich ist **kein zweites Projekt** und benötigt kein neues Konto oder eine Audio-Cloud.
+
+### Enthalten
+
+- 9 Lernpfade: Audiogrundlagen, Recording, Mixing, Effekte, DAWs, digitale Mischpulte, analoge Mischpulte, Live-Sound-Praxis und Fehlersuche.
+- 13 Einstiegslektionen mit Lernziel, einfacher und technischer Erklärung, Praxisbeispiel und Übungsanregung.
+- 36 selbst formulierte Multiple-Choice-Fragen, die über das bestehende Quizsystem mit Feedback, Wiederholungen und Lernfortschritt bewertet werden.
+- DAW-Vergleich für Logic Pro, Ableton Live, FL Studio und GarageBand (konzeptionell, noch keine detaillierten Schritt-für-Schritt-Tutorials für jede Version).
+- EQ-Labor: lokale WAV-/MP3-Dateien auswählen (weitere Formate je nach Browser), Wiedergabe und Loop, vier parametrische EQ-Bänder (Frequenz, Gain, Q), Hoch-/Tiefpass, Bypass (A/B), Master-Lautstärke und Stummschaltung.
+- Anzeige der Filterkurve und eine Hör-Challenge zum Erkennen einer angehobenen Frequenz. Hör-Challenge-Ergebnisse werden zusammen mit deinen übrigen Lernständen lokal gesichert.
+
+**Wichtiger Hinweis zum Gehörschutz:** Zu Beginn die Systemlautstärke gering einstellen. Der Audio-Master startet mit 30 % und ist auf 70 % begrenzt; dies ist **kein garantierter SPL- oder True-Peak-Schutz**. Starke EQ-Anhebungen können je nach Quellmaterial zu hohen Pegeln oder Clipping führen.
+
+### So verwendest du das EQ-Labor
+
+1. Starte `python3 start.py` und öffne `http://127.0.0.1:8765`.
+2. Öffne **Audio & Live Sound → EQ-Labor & Hörtraining**.
+3. Wähle eine eigene lokale Audio-Datei. Sie wird nicht an den Server geschickt.
+4. Drücke Play und verändere Frequenz, Gain und Q der vier Bänder.
+5. Schalte **A/B** zwischen Original und bearbeitetem Signal um; gleiche wahrgenommene Lautstärken für einen fairen Vergleich nach Möglichkeit selbst ab.
+6. Starte eine Hör-Challenge. Höre den Unterschied und wähle die vermutete Frequenz. Danach wird die Lösung erklärt.
+7. Öffne **Fortschritt**. Die zugehörigen Theoriefragen und Hör-Challenges erscheinen in deinem Lernprofil.
+
+### Grenzen und nächste Entwicklungsschritte
+
+Die aktuell integrierte erste Ausbaustufe enthält **keinen vollständigen Mehrspur-Live-Mixer**, keine tatsächlich simulierten Monitorbusse, keine interaktiven Kompressor-/Hall-Engines, keine Aufnahmeschnittstelle und keine vollständigen produktspezifischen DAW-Kurse. Die Praxisübungen außerhalb des EQ-Labors sind vorerst Anleitungen zum Selbstausprobieren. Raumakustik, Live-Feedback und Lautsprecherverhalten lassen sich in diesem Browser-Labor noch nicht realistisch simulieren.
+
+Audio wird durch die Web Audio API lokal verarbeitet; MP3/M4A/FLAC-Kompatibilität hängt vom verwendeten Browser ab. Die importierte Audio-Datei wird nicht dauerhaft gespeichert: Nach einem Neustart musst du sie erneut auswählen. Die Einstellungen des Loop-Schalters und die Lernfortschritte bleiben dagegen erhalten, soweit der Browser lokale Speicherung zulässt.
+
+### Entwicklertests
+
+```bash
+node --check dist/audio-academy.js
+node --check dist/audio-questions.js
+node --check dist/app.js
+node --test tests/audio-academy.test.cjs
+python3 -m py_compile start.py
+```
+
+Das separate GitHub-Workflow `.github/workflows/audio-academy.yml` führt diese statischen und Node-basierten Checks auf dem Feature-Branch und bei Pull Requests aus. **Reale Hörtests, Browser-E2E, Dauerbetrieb und neue Installationspakete sind damit nicht ersetzt** und müssen vor einer öffentlichen Release-Freigabe noch durchgeführt werden.
+
+### Code-Aufbau
+
+- `dist/audio-questions.js` – eigene Audio-Aufgaben im Datenformat des bestehenden Quizsystems.
+- `dist/audio-academy.js` – Lernpfade, Lektionen, EQ-Labor, Audio-Nodes, Hörübungen.
+- `dist/audio-academy.css` – ergänzende responsive Gestaltung innerhalb der bisherigen App.
+- `tests/audio-academy.test.cjs` – einfache Regressionstests ohne npm-Abhängigkeiten.
+
+Die neuen Lehrinhalte sind selbst formuliert. Herstellernamen dienen der sachlichen Einordnung; die Anwendung reproduziert keine vollständigen geschützten Hersteller-Oberflächen oder E-Books.
