@@ -44,7 +44,7 @@
   function completed(track){return (ctx.questions()||[]).filter(q=>q.subject==="Audio & Live Sound"&&(!track||q.topic===track)&&ctx.rec(q).streak>=3).length;}
   function safe(t){return ctx.esc(t);}
   function header(title,sub){return '<div class="heading"><div><h1>'+safe(title)+'</h1><p>'+safe(sub)+'</p></div><span class="chip">Audio & Live Sound</span></div>';}
-  function tabs(){return '<div class="aa-tabs" role="group" aria-label="Audiolernbereich"><button class="quiet '+(view==="overview"?'active':'')+'" data-aa-view="overview">Lernpfade</button><button class="quiet '+(view==="lab"?'active':'')+'" data-aa-view="lab">EQ-Labor & Hoertraining</button><button class="quiet '+(view==="compare"?'active':'')+'" data-aa-view="compare">DAW-Vergleich</button></div>';}
+  function tabs(){return '<div class="aa-tabs" role="group" aria-label="Audiolernbereich"><button class="quiet '+(view==="overview"?'active':'')+'" data-aa-view="overview">Lernpfade</button><button class="quiet '+(view==="lab"?'active':'')+'" data-aa-view="lab">EQ-Labor & Hoertraining</button><button class="quiet '+(view==="compare"?'active':'')+'" data-aa-view="compare">DAW-Vergleich</button><button class="quiet '+(view==="mixer"?'active':'')+'" data-aa-view="mixer">Mixer Simulator</button></div>';}
   function overview(){
     const q=questionCount(),done=completed(),practice=ctx.state.audioPractice||{attempts:0,correct:0};
     return header("Audio, Recording & Live Sound","Verstehen → ausprobieren → Aufgabe loesen → Feedback bekommen → wiederholen.")+
@@ -83,6 +83,7 @@
   function log(message){const el=$("#aa-message");if(el)el.textContent=message;}
   function stopVisual(){if(raf){cancelAnimationFrame(raf);raf=0;}}
   function dispose(){
+    window.AudioMixer?.dispose();
     stopVisual();pendingFile++;
     if(audio){try{audio.pause();audio.removeAttribute("src");audio.load();}catch(e){}audio=null;}
     if(nodes){try{nodes.src.disconnect();}catch(e){}nodes=null;}
@@ -253,6 +254,7 @@
     if(view==="overview")ctx.app.innerHTML=overview();
     else if(view==="compare")ctx.app.innerHTML=compare();
     else if(view==="lab")ctx.app.innerHTML=lab();
+    else if(view==="mixer")ctx.app.innerHTML=header("Interaktiver 8-Kanal-Mixer","Eigene Multitracks oder synthetische Demo – Balance, EQ und Monitor-Sends praktisch hoeren.")+tabs()+'<div id="aa-mixer-host"></div>';
     else ctx.app.innerHTML=trackPage();
     document.querySelectorAll("[data-aa-view]").forEach(b=>b.onclick=()=>setView(b.dataset.aaView));
     document.querySelectorAll("[data-aa-track]").forEach(b=>b.onclick=()=>{chosenTrack=b.dataset.aaTrack;chosenLesson="";view="track";render(ctx);});
@@ -267,6 +269,7 @@
     if($("#aa-track-quiz"))$("#aa-track-quiz").onclick=()=>quiz(tr(chosenTrack).name);
     if($("#aa-lesson-quiz"))$("#aa-lesson-quiz").onclick=()=>quiz(tr(chosenTrack).name);
     if(view==="lab")setupLab();
+    if(view==="mixer")window.AudioMixer?.render($("#aa-mixer-host"));
   }
   window.AudioAcademy={render,dispose,trackCount:()=>TRACKS.length,lessonCount:()=>LESSONS.length};
 })();
