@@ -116,9 +116,12 @@ async function play(){
    const loaded=channels.filter(c=>c.buffer);
    if(!loaded.length){note("Bitte Demo-Spuren erzeugen oder Audiodateien importieren.");return;}
    if(playing)return;
+   const token=++generation;
    await ctx.resume();
+   // Stop, Trackwechsel oder Navigation waehrend Resume: keinen alten Start ausfuehren.
+   if(token!==generation||!channels.length)return;
    if(position>=duration())position=0;
-   const token=++generation,when=ctx.currentTime+.065;
+   const when=ctx.currentTime+.065;
    started=when;
    let ended=0;
    players=[];
@@ -135,7 +138,7 @@ async function play(){
  }catch(e){halt(false);note("Wiedergabe konnte nicht gestartet werden: "+e.message);}
 }
 function pause(){
- if(!playing)return;
+ if(!playing){generation++;return;}
  position=Math.min(duration(),now());halt(false);note("Pausiert bei "+fmt(position)+".");
 }
 function tick(){
@@ -155,14 +158,16 @@ function tick(){
 }
 async function fileChanged(e){
  const el=e.target,index=Number(el.dataset.mxFile),file=el.files?.[0];if(!file)return;
+ const target=channels[index],seq=(target.loadSeq||0)+1;target.loadSeq=seq;
  if(file.size>60*1024*1024){note("Eine Spur darf hoechstens 60 MB gross sein.");el.value="";return;}
  if(!file.type.startsWith("audio/")&&!/\.(wav|mp3|m4a|flac|ogg)$/i.test(file.name)){note("Nicht unterstuetzte Audio-Datei.");el.value="";return;}
  try{
    ensure();
    const data=await file.arrayBuffer();
    const decoded=await ctx.decodeAudioData(data);
+   if(channels[index]!==target||target.loadSeq!==seq)return;
    halt(true);
-   channels[index].buffer=decoded;
+   target.buffer=decoded;
    $("#mx-file-name-"+index).textContent=file.name;
    note(file.name+" geladen. Fuer synchrone Wiedergabe muessen alle Stems am gleichen Zeitpunkt beginnen.");
    updateTime();
