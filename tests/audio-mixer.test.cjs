@@ -8,7 +8,7 @@ const src=fs.readFileSync(path.join(base,'mixer-simulator.js'),'utf8');
 function fresh(){
   const hooks=new Map();
   const document={
-    querySelector(id){return hooks.get(id)||null;},
+    querySelector(id){if(!hooks.has(id))hooks.set(id,{});return hooks.get(id);},
     querySelectorAll(){return [];}
   };
   const win={};
@@ -32,7 +32,7 @@ test('each channel includes full controls and stem import',()=>{
   assert.equal((host.innerHTML.match(/data-mx-solo=/g)||[]).length,8);
 });
 test('mixer graph includes audio processing and synchronized start entry point',()=>{
-  for(const expected of ['createBufferSource','createBiquadFilter','createGain','createStereoPanner','createDynamicsCompressor','createAnalyser','p.start(when,startOffset)','context','start','stop']){
+  for(const expected of ['createBufferSource','createBiquadFilter','createGain','createStereoPanner','createDynamicsCompressor','createAnalyser','p.start(when,startOffset)','function pause','async function play','function halt']){
     assert.ok(src.includes(expected),expected);
   }
 });
