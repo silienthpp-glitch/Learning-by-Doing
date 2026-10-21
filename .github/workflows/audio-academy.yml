@@ -1,0 +1,33 @@
+name: Audio Academy checks
+on:
+  push:
+    branches: [main, feat/audio-live-sound-academy]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  audio-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax (legacy and audio extension)
+        run: |
+          node --check dist/app.js
+          node --check dist/questions.js
+          node --check dist/audio-questions.js
+          node --check dist/audio-academy.js
+          node --check tests/audio-academy.test.cjs
+      - name: Audio academy smoke tests
+        run: node --test tests/audio-academy.test.cjs
+      - name: Python backend syntax
+        run: python3 -m py_compile start.py
+      - name: Static files present
+        run: |
+          test -f dist/audio-academy.css
+          test -f dist/index.html
+          test -f dist/style.css
