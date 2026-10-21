@@ -166,6 +166,10 @@ async function fileChanged(e){
    const data=await file.arrayBuffer();
    const decoded=await ctx.decodeAudioData(data);
    if(channels[index]!==target||target.loadSeq!==seq)return;
+   // Der Browser dekodiert komprimierte Dateien vollstaendig in RAM.
+   const usedBytes=channels.reduce((sum,c)=>sum+(c===target||!c.buffer?0:c.buffer.length*c.buffer.numberOfChannels*4),0);
+   const requestedBytes=usedBytes+decoded.length*decoded.numberOfChannels*4;
+   if(requestedBytes>180*1024*1024)throw Error("Zu viele oder zu lange Spuren fuer das lokale Uebungslabor (max. ca. 180 MB dekodiertes Audio).");
    halt(true);
    target.buffer=decoded;
    $("#mx-file-name-"+index).textContent=file.name;
