@@ -301,6 +301,7 @@ Der Bereich ist direkt in Learning by Doing integriert und verwendet **dieselbe 
 - 36 selbst formulierte Multiple-Choice-Fragen, die über das bestehende Quizsystem mit Feedback, Wiederholungen und Lernfortschritt bewertet werden.
 - DAW-Vergleich für Logic Pro, Ableton Live, FL Studio und GarageBand (konzeptionell, noch keine detaillierten Schritt-für-Schritt-Tutorials für jede Version).
 - EQ-Labor: lokale WAV-/MP3-Dateien auswählen (weitere Formate je nach Browser), Wiedergabe und Loop, vier parametrische EQ-Bänder (Frequenz, Gain, Q), Hoch-/Tiefpass, Bypass (A/B), Master-Lautstärke und Stummschaltung.
+- Einfacher **8-Kanal-Mixer-Simulator**: selbst erzeugte Demo-Spuren oder eigene Stems, gemeinsamer Start, Loop, Play/Pause/Stop, Input Gain, HPF, EQ, Kompressor-Ratio, Panorama, Fader, Mute/Solo, ein separater Monitor-Abhörweg und Pegelanzeige.
 - Anzeige der Filterkurve und eine Hör-Challenge zum Erkennen einer angehobenen Frequenz. Hör-Challenge-Ergebnisse werden zusammen mit deinen übrigen Lernständen lokal gesichert.
 
 **Wichtiger Hinweis zum Gehörschutz:** Zu Beginn die Systemlautstärke gering einstellen. Der Audio-Master startet mit 30 % und ist auf 70 % begrenzt; dies ist **kein garantierter SPL- oder True-Peak-Schutz**. Starke EQ-Anhebungen können je nach Quellmaterial zu hohen Pegeln oder Clipping führen.
@@ -315,9 +316,19 @@ Der Bereich ist direkt in Learning by Doing integriert und verwendet **dieselbe 
 6. Starte eine Hör-Challenge. Höre den Unterschied und wähle die vermutete Frequenz. Danach wird die Lösung erklärt.
 7. Öffne **Fortschritt**. Die zugehörigen Theoriefragen und Hör-Challenges erscheinen in deinem Lernprofil.
 
+### Achtkanal-Mixer ausprobieren
+
+1. Öffne **Audio & Live Sound → Mixer Simulator**.
+2. Wähle **Demo-Spuren erzeugen**, um acht kurze synthetische Übungsklänge zu laden, oder lade eigene WAV-/MP3-Stems einzeln pro Kanal.
+3. Beginne mit geringem System-Ausgangspegel, drücke **Play** und passe Fader, EQ, Panorama, Mute/Solo an.
+4. Wähle **Monitorbus**, um die unabhängigen Monitor-Sends abzuhören; wechsle zurück auf **Main LR**.
+5. Mit **Pause**, **Stop** und **Loop** kannst du das Verhalten wiederholt prüfen.
+
+Für eine verlässliche gemeinsame Wiederholung sollten Stems dieselbe Länge und denselben Startzeitpunkt haben. Unterschiedlich lange Dateien können im Loop gegeneinander versetzt laufen. Importierte Audiobuffer sind nur bis zum Schließen der Seite verfügbar. Das Werkzeug ist ein **Lernmodell**, kein Ersatz für ein reales Mischpult, professionelle Pegelüberwachung oder akustische Messungen.
+
 ### Grenzen und nächste Entwicklungsschritte
 
-Die aktuell integrierte erste Ausbaustufe enthält **keinen vollständigen Mehrspur-Live-Mixer**, keine tatsächlich simulierten Monitorbusse, keine interaktiven Kompressor-/Hall-Engines, keine Aufnahmeschnittstelle und keine vollständigen produktspezifischen DAW-Kurse. Die Praxisübungen außerhalb des EQ-Labors sind vorerst Anleitungen zum Selbstausprobieren. Raumakustik, Live-Feedback und Lautsprecherverhalten lassen sich in diesem Browser-Labor noch nicht realistisch simulieren.
+Die aktuell integrierte erste Ausbaustufe enthält einen **vereinfachten Achtkanal-Mehrspur-Mixer** mit Monitor-Sends und einfacher Web-Audio-Kompression. Es fehlen weiterhin ein ausgereiftes professionelles Kanal- und Bus-Routing, echte Hall-Algorithmen, eine Aufnahmeschnittstelle und keine vollständigen produktspezifischen DAW-Kurse. Die Praxisübungen außerhalb des EQ-Labors sind vorerst Anleitungen zum Selbstausprobieren. Raumakustik, Live-Feedback und Lautsprecherverhalten lassen sich in diesem Browser-Labor noch nicht realistisch simulieren.
 
 Audio wird durch die Web Audio API lokal verarbeitet; MP3/M4A/FLAC-Kompatibilität hängt vom verwendeten Browser ab. Die importierte Audio-Datei wird nicht dauerhaft gespeichert: Nach einem Neustart musst du sie erneut auswählen. Die Einstellungen des Loop-Schalters und die Lernfortschritte bleiben dagegen erhalten, soweit der Browser lokale Speicherung zulässt.
 
@@ -327,7 +338,8 @@ Audio wird durch die Web Audio API lokal verarbeitet; MP3/M4A/FLAC-Kompatibilit�
 node --check dist/audio-academy.js
 node --check dist/audio-questions.js
 node --check dist/app.js
-node --test tests/audio-academy.test.cjs
+node --check dist/mixer-simulator.js
+node --test tests/audio-academy.test.cjs tests/audio-mixer.test.cjs
 python3 -m py_compile start.py
 ```
 
@@ -337,7 +349,8 @@ Das separate GitHub-Workflow `.github/workflows/audio-academy.yml` führt diese 
 
 - `dist/audio-questions.js` – eigene Audio-Aufgaben im Datenformat des bestehenden Quizsystems.
 - `dist/audio-academy.js` – Lernpfade, Lektionen, EQ-Labor, Audio-Nodes, Hörübungen.
+- `dist/mixer-simulator.js` – unabhängige didaktische Achtkanal-Mixer-Engine.
 - `dist/audio-academy.css` – ergänzende responsive Gestaltung innerhalb der bisherigen App.
-- `tests/audio-academy.test.cjs` – einfache Regressionstests ohne npm-Abhängigkeiten.
+- `tests/audio-academy.test.cjs` und `tests/audio-mixer.test.cjs` – einfache Regressionstests ohne npm-Abhängigkeiten.
 
 Die neuen Lehrinhalte sind selbst formuliert. Herstellernamen dienen der sachlichen Einordnung; die Anwendung reproduziert keine vollständigen geschützten Hersteller-Oberflächen oder E-Books.
