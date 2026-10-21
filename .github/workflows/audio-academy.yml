@@ -21,9 +21,11 @@ jobs:
           node --check dist/questions.js
           node --check dist/audio-questions.js
           node --check dist/audio-academy.js
+          node --check dist/mixer-simulator.js
           node --check tests/audio-academy.test.cjs
+          node --check tests/audio-mixer.test.cjs
       - name: Audio academy smoke tests
-        run: node --test tests/audio-academy.test.cjs
+        run: node --test tests/audio-academy.test.cjs tests/audio-mixer.test.cjs
       - name: Python backend syntax
         run: python3 -m py_compile start.py
       - name: Static files present
