@@ -3,7 +3,7 @@ const KEY='learning-by-doing-v2',LEGACY='learning-by-doing-v1',DAY=86400000;
 const app=document.querySelector('#app');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const id=p=>p+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
-const blank=()=>({version:2,records:{},history:[],custom:[],sets:[],sources:[],games:[],theme:'light',quoteShift:0,aiProvider:'ollama'});
+const blank=()=>({version:2,records:{},history:[],custom:[],sets:[],sources:[],games:[],audioPractice:{attempts:0,correct:0},audioLoop:false,theme:'light',quoteShift:0,aiProvider:'ollama'});
 let state=blank(),session=null,game=null,message='',aiStatusCache=null;
 
 try{
@@ -278,7 +278,7 @@ function refreshMotivation(){
 }
 
 function questions(){
-  return [...(window.EXAMPLE_QUESTIONS||[]).map(q=>({...q,subject:q.subject||'IHK AP2',setId:q.setId||'',sourceName:q.sourceName||'Beispielaufgaben'})),...(state.custom||[])];
+  return [...(window.EXAMPLE_QUESTIONS||[]).map(q=>({...q,subject:q.subject||'IHK AP2',setId:q.setId||'',sourceName:q.sourceName||'Beispielaufgaben'})),...(window.AUDIO_QUESTIONS||[]).map(q=>({...q,setId:'',sourceName:'Audio Academy'})),...(state.custom||[])];
 }
 function rec(q){return state.records[q.id]||{attempts:0,correct:0,streak:0,due:0,last:0}}
 function mastered(q){return rec(q).streak>=3}
@@ -334,6 +334,7 @@ function setCard(s){
 function render(){
   document.body.classList.toggle('dark',state.theme==='dark');
   const route=location.hash.slice(1)||'dashboard';
+  if(route!=='audio')window.AudioAcademy?.dispose();
   document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.hash==='#'+route));
   document.querySelector('#error-count').textContent=errors().length;
   if(session){renderQuestion();return}
@@ -344,6 +345,7 @@ function render(){
   else if(route==='games') gamesHome();
   else if(route==='topics') topicsView();
   else if(route==='progress') progress();
+  else if(route==='audio' && window.AudioAcademy) window.AudioAcademy.render({app,state,save,esc,start,questions,rec});
   else if(route==='exam') exam();
   else if(route==='guide') guide();
   else if(route==='settings') settings();
@@ -360,6 +362,7 @@ function dashboard(){
   app.innerHTML=head('Dein nächster Aha-Moment.','Lerne für IHK, Klausuren und Tests – Fach für Fach und in deinem Tempo.','Level '+l.n)+
   '<section class="hero"><div><div class="eyebrow">DEINE NÄCHSTE LERNRUNDE</div><h2>Üben, verstehen,<br>noch einmal anwenden.</h2><p>Falsche Antworten werden wiederholt. Eigene Unterlagen kannst du einem Fach und Lernset zuordnen.</p><div class="actions"><button data-start="learn">Lernen starten</button><a class="button quiet" href="#library">Unterlagen hinzufügen</a><a class="button quiet" href="#guide">Guide ansehen</a></div></div><div class="ring" style="--value:'+pct(questions())+'%"><div><strong>'+pct(questions())+'%</strong><small>sicher gelernt</small></div></div></section>'+
   stats()+insightCards()+motivationCard()+
+   '<section class="card" style="margin:20px 0"><span class="tag">NEU: AUDIO & LIVE SOUND</span><h2>Recording, EQ und Live-Mixing verstehen</h2><p>Mit eigenen Songs ueben, 9 Lernpfade entdecken und denselben Lernfortschritt wie bei IHK-Themen nutzen.</p><a class="button" href="#audio">Audio Academy oeffnen</a></section>'+
   '<div class="two"><section class="card"><div class="section-head"><h2>Deine Fächer</h2><a href="#library">Verwalten</a></div>'+rows('subject')+'</section><section class="card"><span class="tag">LEVEL '+l.n+'</span><h2>'+l.cur+' / '+l.step+' XP bis Level '+(l.n+1)+'</h2><progress max="'+l.step+'" value="'+l.cur+'"></progress><p>Richtige Antworten, gemeisterte Aufgaben und Lernspiele geben XP.</p><div class="mini-badges"><span>🔥 '+streak()+' Tage</span><span>🧠 '+questions().filter(mastered).length+' gemeistert</span><span>🎮 '+(state.games||[]).length+' Spiele</span></div></section></div>'+
   '<section class="card" style="margin-top:24px"><div class="section-head"><h2>Deine Klausuren & Tests</h2><a href="#library">Neues Lernset</a></div>'+(active.length?'<div class="set-grid">'+active.map(setCard).join('')+'</div>':'<div class="empty-state"><strong>Noch kein eigenes Lernset.</strong><p>Lege zum Beispiel „Netzwerktechnik Klausur 2“ oder „WiSo Test Freitag“ an.</p><a class="button" href="#library">Erstes Lernset anlegen</a></div>')+'</section>';
 }
@@ -406,6 +409,7 @@ function topicsView(){
 function progress(){
   const n=state.history.length,acc=n?Math.round(state.history.filter(x=>x.correct).length/n*100):0,l=level();
   app.innerHTML=head('Du kommst voran.','Level, Fächer und Lernsets zeigen dir, wo du stehst.','Level '+l.n)+stats()+
+  '<section class="card" style="margin:20px 0"><h2>Audio-Hoertraining</h2><p>'+(state.audioPractice?.correct||0)+' von '+(state.audioPractice?.attempts||0)+' Hoer-Challenges richtig. Theoriefragen findest du im Fach Audio & Live Sound.</p><a class="button quiet" href="#audio">Zum Audio-Lernbereich</a></section>'+ 
   '<div class="two"><section class="card"><h2>Fortschritt je Fach</h2>'+rows('subject')+'</section><section class="card"><h2>Dein Lernprofil</h2><div class="big-number">'+acc+'%</div><p>Richtige Antworten bei '+n+' Versuchen.</p><p>'+questions().filter(q=>rec(q).attempts).length+' von '+questions().length+' Aufgaben ausprobiert.</p><h3>Level '+l.n+'</h3><progress max="'+l.step+'" value="'+l.cur+'"></progress><p class="small">'+l.cur+' von '+l.step+' XP bis zum nächsten Level.</p></section></div>'+
   '<section class="card" style="margin-top:24px"><h2>Lernsets</h2>'+(state.sets.length?'<div class="set-grid">'+state.sets.map(setCard).join('')+'</div>':'<p class="muted">Noch keine eigenen Lernsets vorhanden.</p>')+'</section>'+
   '<section class="card" style="margin-top:24px"><h2>Fortschritt sichern</h2><div class="actions"><button id="export">Sicherung herunterladen</button><label class="file-button">Sicherung wiederherstellen<input id="restore" type="file" accept=".json,application/json"></label></div><p id="restore-status"></p></section>';
