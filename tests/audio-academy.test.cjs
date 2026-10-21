@@ -57,6 +57,9 @@ test('main app integrates imported questions without modifying original sets',()
   assert.match(js,/window\.AudioAcademy\.render/);
   assert.match(js,/audioPractice/);
   assert.match(js,/window\.AudioAcademy\?\.dispose/);
+  // Der regulaere IHK-Pruefungsmodus darf keine Audiofragen ungefragt mischen.
+  assert.match(js,/mode==='exam'&&!subject&&!topic&&!setId/);
+  assert.match(js,/q\.subject!=='Audio & Live Sound'/);
 });
 test('EQ uses actual audio processing, local object URL and safe master level',()=>{
   const js=file('audio-academy.js');
