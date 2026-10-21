@@ -461,6 +461,8 @@ function start(mode,opt={}){
   if(topic)list=list.filter(q=>q.topic===topic);
   if(setId)list=list.filter(q=>q.setId===setId);
   if(mode==='errors')list=list.filter(q=>rec(q).attempts&&rec(q).streak<3);
+  // IHK-Probepruefungen bleiben IHK-Pruefungen, nicht Audio-Mischtests.
+  if(mode==='exam'&&!subject&&!topic&&!setId)list=list.filter(q=>q.subject!=='Audio & Live Sound');
   if(mode==='exam')list=shuffle(list.filter(q=>q.type!=='selfcheck'));
   else list.sort((a,b)=>{const rank=q=>rec(q).attempts&&rec(q).due<=Date.now()?0:!rec(q).attempts?1:2;return rank(a)-rank(b)||rec(a).due-rec(b).due});
   const requested=Number(opt.limit||(mode==='exam'?document.querySelector('#exam-count')?.value:10)||10),limit=Math.max(1,Math.min(30,requested));
