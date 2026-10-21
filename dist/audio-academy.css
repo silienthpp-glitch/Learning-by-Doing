@@ -1,0 +1,43 @@
+/* Audio Academy; baut auf dem bestehenden Learning-by-Doing-Design auf. */
+.aa-tabs { display:flex; gap:10px; flex-wrap:wrap; margin:0 0 22px; }
+.aa-tabs .active { background:var(--primary); color:white; border-color:transparent; }
+.aa-hero { display:grid; grid-template-columns:minmax(0,2.4fr) minmax(180px,1fr); align-items:center; gap:28px; margin-bottom:22px; }
+.aa-hero strong { font-size:34px; display:block; color:var(--primary); }
+.aa-hero small { display:block; margin:7px 0; color:var(--muted); }
+.aa-track-grid, .aa-lesson-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(245px,1fr)); gap:15px; }
+.aa-track { display:flex; align-items:flex-start; gap:14px; min-width:0; }
+.aa-track h3 { margin:9px 0 5px; font-size:19px; }
+.aa-track p { margin:6px 0 12px; }
+.aa-track-icon { display:grid; place-items:center; flex:0 0 36px; height:36px; background:var(--primary-soft); border-radius:11px; color:var(--primary); font-size:21px; }
+.aa-lesson { display:grid; gap:10px; }
+.aa-lesson h2, .aa-lesson h3 { margin-bottom:0; }
+.aa-lesson p { margin-top:0; }
+.aa-scroll { overflow-x:auto; }
+.aa-table { border-collapse:collapse; width:100%; min-width:680px; text-align:left; }
+.aa-table th,.aa-table td { padding:12px; border:1px solid var(--line); vertical-align:top; }
+.aa-table th { background:var(--panel-2); }
+.aa-lab { display:grid; gap:18px; }
+.aa-drop { display:block; border:2px dashed var(--primary-2); background:var(--panel-2); border-radius:14px; padding:16px; max-width:400px; cursor:pointer; }
+.aa-drop input { display:block; max-width:100%; margin-top:8px; }
+.aa-audio-head { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+#aa-player { display:block; width:100%; max-width:900px; }
+.aa-player-actions { align-items:center; flex-wrap:wrap; }
+.aa-player-actions label { display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; color:var(--text); }
+#aa-message { background:var(--panel-2); border:1px solid var(--line); padding:12px 14px; border-radius:12px; }
+.aa-canvas-wrap { overflow:hidden; border:1px solid var(--line); border-radius:14px; background:#131f34; }
+#aa-response { display:block; width:100%; height:auto; aspect-ratio:740 / 220; }
+.aa-filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.aa-filters>label, .aa-band { padding:16px; border:1px solid var(--line); border-radius:14px; min-width:0; }
+.aa-filters label { display:grid; gap:8px; color:var(--text); }
+.aa-band { display:grid; gap:13px; }
+.aa-band legend { font-weight:750; padding:0 8px; }
+.aa-band output, .aa-filters output { font-variant-numeric:tabular-nums; font-size:13px; color:var(--muted); }
+.aa-filters input[type=range] { width:100%; }
+.aa-challenge-box { border-radius:14px; padding:16px; background:var(--panel-2); }
+.aa-challenge-box:empty { display:none; }
+.aa-success { color:var(--success); font-weight:750; }
+.aa-warning { color:var(--warning); font-weight:750; }
+#aa-controls[hidden] { display:none !important; }
+.aa-lab button:focus-visible, .aa-tabs button:focus-visible, .aa-track button:focus-visible { outline:3px solid var(--primary-2); outline-offset:3px; }
+@media(max-width:760px){ .aa-hero { grid-template-columns:1fr; } .aa-filters {grid-template-columns:1fr;} }
+@media(prefers-reduced-motion:reduce){ .aa-lab * { transition:none !important; } }
