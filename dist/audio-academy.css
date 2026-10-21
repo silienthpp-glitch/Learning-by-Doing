@@ -41,3 +41,26 @@
 .aa-lab button:focus-visible, .aa-tabs button:focus-visible, .aa-track button:focus-visible { outline:3px solid var(--primary-2); outline-offset:3px; }
 @media(max-width:760px){ .aa-hero { grid-template-columns:1fr; } .aa-filters {grid-template-columns:1fr;} }
 @media(prefers-reduced-motion:reduce){ .aa-lab * { transition:none !important; } }
+
+/* Didaktischer Mehrspur-Mixer */
+.aa-mixer { display:grid; gap:18px; }
+.aa-mixer .actions { flex-wrap:wrap; align-items:center; }
+.aa-mixer .actions label { display:inline-flex; align-items:center; gap:8px; }
+.aa-mixer-status { background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:12px; }
+.aa-mixer-time { font-variant-numeric:tabular-nums; font-weight:700; }
+.aa-mixer-grid { display:grid; grid-template-columns:repeat(8,minmax(170px,1fr)); gap:10px; overflow-x:auto; padding-bottom:12px; }
+.aa-channel { min-width:170px; background:var(--panel-2); border:1px solid var(--line); border-radius:14px; padding:12px; display:grid; align-content:start; gap:12px; }
+.aa-channel h3 { margin:0; font-size:16px; }
+.aa-channel .aa-track-file { max-width:140px; margin-top:7px; }
+.aa-channel small { font-size:11px; color:var(--muted); overflow-wrap:anywhere; }
+.aa-mix-buttons { display:flex; gap:5px; }
+.aa-mix-buttons button { font-size:12px; padding:6px 10px; }
+.aa-mix-buttons [aria-pressed=true] { background:var(--primary); color:white; }
+.aa-mixer-slider { display:grid; gap:3px; font-size:12px; }
+.aa-mixer-slider input { width:100%; }
+.aa-mixer-slider output { color:var(--muted); font-size:12px; }
+.aa-meter-wrap { height:8px; border-radius:8px; background:var(--line); overflow:hidden; }
+.aa-meter { width:0; height:8px; background:var(--success); transition:width .08s linear; }
+.aa-mixer-footer { display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap; }
+.aa-mixer-footer p { max-width:780px; }
+@media(max-width:800px){.aa-mixer-grid{grid-template-columns:repeat(8,170px)}}
